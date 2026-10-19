@@ -97,7 +97,7 @@ Levels are built in [Tiled](https://www.mapeditor.org/) and exported as **JSON (
 | Layer | Object | Notes |
 |---|---|---|
 | `path` | One **polyline** | The Knight's route, from first point to last |
-| `objects` | `knight_start`, `helper_start`, `exit` | Point objects |
+| `objects` | `helper_start`, `exit` | Point objects (the Knight starts at the first point of his path) |
 | `objects` | `slime`, `locked_door`, `pit`, `rock`, `cracked_wall`, `arrow_trap` | Obstacles on the path; set the Tiled **Class** field to the name |
 | `objects` | `dark_room` | Rectangle; the area that needs the Torch |
 | `objects` | `helper_hazard` | Something that hurts only the Helper (e.g., spike floor) |
