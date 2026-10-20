@@ -8,18 +8,7 @@ import pygame
 from game.backpack import STARTING_BAG
 
 FPS = 60
-SCREEN_SIZE = (960, 720)  # 20x15 tiles of 16 px, scaled up 3x
-TEXT_COLOR = (235, 235, 235)
-DIM_COLOR = (130, 125, 140)
-HIGHLIGHT_COLOR = (120, 220, 255)
-BACKGROUND_COLOR = (25, 22, 30)
-
-
-def draw_text(surface, font, text, pos, anchor="topleft", color=TEXT_COLOR):
-    image = font.render(text, True, color)
-    rect = image.get_rect(**{anchor: pos})
-    surface.blit(image, rect)
-    return rect
+SCREEN_SIZE = (1280, 720)  # the UI kit's 320x180 canvas at 4x
 
 
 class Scene:
@@ -43,10 +32,6 @@ class Game:
         self.screen = pygame.display.set_mode(SCREEN_SIZE)
         pygame.display.set_caption("Player 2")
         self.clock = pygame.time.Clock()
-        self.font = pygame.font.Font(None, 24)
-        self.big_font = pygame.font.Font(None, 40)
-        self.title_font = pygame.font.Font(None, 96)
-        self.icon_font = pygame.font.Font(None, 18)
         self.scene = None
         self.running = True
 
@@ -60,6 +45,13 @@ class Game:
 
     def level_available(self, index):
         return index == 0 or index - 1 in self.completed
+
+    def next_level(self):
+        """The first level not completed yet (or the last one, once all are done)."""
+        for i in range(len(self.levels)):
+            if i not in self.completed:
+                return i
+        return len(self.levels) - 1
 
     def change_scene(self, scene):
         self.scene = scene

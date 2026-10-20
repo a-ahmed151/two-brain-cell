@@ -1,4 +1,6 @@
+import json
 import math
+from functools import cache
 
 import pygame
 
@@ -26,8 +28,36 @@ def helper_frames():
     return _helper_frames
 
 
+KNIGHT_SHEET = "assets/knight/chibi_knight.json"  # one row per animation; cols 0-6 face right, 7-13 face left
+KNIGHT_FACING_LEFT_COL = 7
+
+
+@cache
+def knight_animations():
+    """{name: (right frames, left frames, fps, loop)}, loaded on first use (needs the display to exist)."""
+    with open(KNIGHT_SHEET) as f:
+        data = json.load(f)
+    sheet = pygame.image.load(f"assets/knight/{data['image']}").convert_alpha()
+    w, h = data["frameWidth"], data["frameHeight"]
+    animations = {}
+    for name, anim in data["animations"].items():
+        y = anim["row"] * h
+        right = [sheet.subsurface((col * w, y, w, h)) for col in range(anim["frames"])]
+        left = [sheet.subsurface(((KNIGHT_FACING_LEFT_COL + col) * w, y, w, h)) for col in range(anim["frames"])]
+        animations[name] = (right, left, anim["fps"], anim["loop"])
+    return animations
+
+
+def knight_frame(name, time, facing_left=False):
+    """The frame of a knight animation `time` seconds after it started."""
+    right, left, fps, loop = knight_animations()[name]
+    index = int(time * fps)
+    index = index % len(right) if loop else min(index, len(right) - 1)
+    return (left if facing_left else right)[index]
+
+
 class Knight:
-    """Walks the level's path from start to end. Placeholder: a steel square with a red plume."""
+    """Walks the level's path from start to end. Drawn from the chibi knight sprite sheet."""
 
     def __init__(self, path, gear=()):
         self.path = path
@@ -37,6 +67,9 @@ class Knight:
         self.reached_exit = False
         self.tool = None  # reusable gear, kept until replaced
         self.item = None  # one-use gear
+        self.facing = (path[1] - path[0]).normalize()
+        self.animation = None
+        self.anim_time = 0.0
         for piece in gear:
             self.receive(piece)
 
@@ -49,6 +82,7 @@ class Knight:
         return old
 
     def update(self, dt):
+        self.anim_time += dt
         if not self.walking or self.reached_exit:
             return
         step = KNIGHT_SPEED * dt
@@ -60,24 +94,34 @@ class Knight:
                 step -= to_target.length()
                 self.next_point += 1
             else:
-                self.pos += to_target.normalize() * step
+                self.facing = to_target.normalize()
+                self.pos += self.facing * step
                 step = 0
         if self.next_point >= len(self.path):
             self.reached_exit = True
 
+    def current_animation(self):
+        if self.reached_exit:
+            return "victory"
+        if abs(self.facing.x) > abs(self.facing.y):
+            return "walk_side" if self.walking else "idle_side"
+        if self.facing.y < 0:
+            return "walk_up" if self.walking else "idle_up"
+        return "walk_down" if self.walking else "idle"
+
     def draw(self, surface, font):
-        body = pygame.Rect(0, 0, 12, 12)
-        body.center = self.pos
-        pygame.draw.rect(surface, (170, 180, 195), body, border_radius=2)
-        pygame.draw.rect(surface, (90, 95, 110), body, 1, border_radius=2)
-        plume = pygame.Rect(0, 0, 4, 5)
-        plume.midbottom = body.midtop
-        pygame.draw.rect(surface, (210, 50, 50), plume)
+        name = self.current_animation()
+        if name != self.animation:
+            self.animation, self.anim_time = name, 0.0
+        image = knight_frame(name, self.anim_time, facing_left=self.facing.x < 0)
+        # He walks the path with his feet a little below it, so he looks centered on the tile.
+        sprite = image.get_rect(midbottom=(self.pos.x, self.pos.y + 7))
+        surface.blit(image, sprite)
 
         # What he's holding, above his head: tool on the left, item on the right.
         for gear, offset in ((self.tool, -5), (self.item, 5)):
             if gear:
-                draw_icon(surface, font, gear, (body.centerx + offset, body.top - 10), size=8)
+                draw_icon(surface, font, gear, (self.pos.x + offset, sprite.top - 3), size=8)
 
 
 class Helper:

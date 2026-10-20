@@ -2,16 +2,22 @@
 
 import pygame
 
+from game import ui
 from game.backpack import BAGS, Backpack
 from game.entities import Helper, Knight
 from game.gear import draw_icon
-from game.scene import HIGHLIGHT_COLOR, Scene, draw_text
+from game.scene import Scene
 
-SCALE = 3  # the world is drawn at native pixel-art size, then scaled up for the window
+WORLD_SCALE = 3  # the world is drawn at native pixel-art size, then scaled up; 320x240 -> 960x720
+HUD_SIZE = (80, 180)  # side panel on the UI canvas scale (4x), right of the world
 
-GRID_COLOR = (52, 49, 58)
 PATH_COLOR = (200, 170, 60)
 EXIT_COLOR = (60, 170, 90)
+HIGHLIGHT_COLOR = (120, 220, 255)
+GOLD = (232, 177, 58)
+SLOT_COLOR = (107, 78, 99)
+DIM = 130
+ICON_FONT = ui.IconFont()
 
 
 def draw_level(surface, level, tiles):
@@ -35,24 +41,15 @@ def draw_level(surface, level, tiles):
     pygame.draw.rect(surface, EXIT_COLOR, exit_rect, 2)
 
 
-def draw_backpack(surface, font, icon_font, backpack, topright):
-    """HUD: bag name and fill, then the queue from front (next hand-off) to back."""
-    bag = backpack.bag
-    label = draw_text(surface, font, f"{bag.name} {len(backpack.queue)}/{bag.slots}  ({bag.extract_time}s)",
-                      topright, "topright")
-    x = label.right - 11
-    for i in reversed(range(bag.slots)):
-        center = (x - (bag.slots - 1 - i) * 24, label.bottom + 14)
-        if i < len(backpack.queue):
-            draw_icon(surface, icon_font, backpack.queue[i], center)
-        else:
-            empty = pygame.Rect(0, 0, 18, 18)
-            empty.center = center
-            pygame.draw.rect(surface, GRID_COLOR, empty, 1)
-        if i == 0:
-            marker = pygame.Rect(0, 0, 24, 24)
-            marker.center = center
-            pygame.draw.rect(surface, HIGHLIGHT_COLOR, marker, 2, border_radius=3)
+def draw_slot(surface, gear, center, size=12, marked=False):
+    rect = pygame.Rect(0, 0, size, size)
+    rect.center = center
+    if gear:
+        draw_icon(surface, ICON_FONT, gear, center, size=size)
+    else:
+        pygame.draw.rect(surface, SLOT_COLOR, rect, 1)
+    if marked:
+        pygame.draw.rect(surface, GOLD, rect.inflate(4, 4), 1)
 
 
 class PlayScene(Scene):
@@ -67,6 +64,11 @@ class PlayScene(Scene):
         self.picked = picked  # indices into the level's gear pool, in queue order
         self.world = pygame.Surface((self.level.pixel_width, self.level.pixel_height))
         self.world_icon_font = pygame.font.Font(None, 10)
+        self.hud = pygame.Surface(HUD_SIZE)
+        world_w = self.level.pixel_width * WORLD_SCALE
+        # The win banner is drawn on a UI-scale overlay covering the world.
+        self.overlay = pygame.Surface((world_w // ui.UI_SCALE, game.screen.get_height() // ui.UI_SCALE),
+                                      pygame.SRCALPHA)
 
         gear = [self.level.gear_pool[i] for i in picked]
         self.knight = Knight(self.level.path, self.level.knight_gear)
@@ -78,12 +80,14 @@ class PlayScene(Scene):
         self.game.change_scene(ItemSelectScene(self.game, self.level_index, self.bag_id, self.picked))
 
     def handle_event(self, event):
+        if self.won:
+            if (event.type == pygame.KEYDOWN and event.key in (pygame.K_RETURN, pygame.K_SPACE)) or \
+                    (event.type == pygame.MOUSEBUTTONUP and event.button == 1):
+                self.next_level()
+            return
         if event.type != pygame.KEYDOWN:
             return
-        if self.won:
-            if event.key in (pygame.K_RETURN, pygame.K_SPACE):
-                self.next_level()
-        elif event.key == pygame.K_ESCAPE:
+        if event.key == pygame.K_ESCAPE:
             self.back_to_item_select()
         elif event.key == pygame.K_r:
             self.game.change_scene(PlayScene(self.game, self.level_index, self.bag_id, self.picked))
@@ -101,6 +105,7 @@ class PlayScene(Scene):
 
     def update(self, dt):
         if self.won:
+            self.knight.update(dt)  # keeps his victory animation going
             return
         self.helper.update(dt, pygame.key.get_pressed(), self.level)
         self.knight.update(dt)
@@ -109,23 +114,62 @@ class PlayScene(Scene):
             self.game.completed.add(self.level_index)
 
     def draw(self, screen):
-        game, knight, helper = self.game, self.knight, self.helper
+        knight, helper = self.knight, self.helper
         draw_level(self.world, self.level, self.tiles)
         if helper.held and helper.in_range(knight):
             pygame.draw.circle(self.world, HIGHLIGHT_COLOR, knight.pos, 10, 1)
-        knight.draw(self.world, self.world_icon_font)
-        helper.draw(self.world, self.world_icon_font)
-        pygame.transform.scale(self.world, (self.level.pixel_width * SCALE, self.level.pixel_height * SCALE), screen)
+        # Draw whoever's feet are lower on screen last, so they overlap correctly.
+        feet = {knight: knight.pos.y + 7, helper: helper.rect.bottom + 1}
+        for actor in sorted(feet, key=feet.get):
+            actor.draw(self.world, self.world_icon_font)
+        world_size = (self.level.pixel_width * WORLD_SCALE, self.level.pixel_height * WORLD_SCALE)
+        screen.blit(pygame.transform.scale(self.world, world_size), (0, 0))
 
-        # The HUD is drawn at window resolution so text stays sharp.
-        draw_text(screen, game.font, self.level.name, (8, 6))
-        draw_backpack(screen, game.font, game.icon_font, helper.backpack, (screen.get_width() - 8, 6))
-        bottom = (screen.get_width() // 2, screen.get_height() - 8)
+        self.draw_hud(self.hud)
+        hud_x = world_size[0]
+        screen.blit(pygame.transform.scale(self.hud, (screen.get_width() - hud_x, screen.get_height())), (hud_x, 0))
+
         if self.won:
-            draw_text(screen, game.font, "The Knight has completed the dungeon!  (ENTER: continue)", bottom, "midbottom")
-        elif not knight.walking:
-            draw_text(screen, game.font, "SPACE: GO    WASD: move    E: dig    R: restart    ESC: back to packing",
-                      bottom, "midbottom")
-        else:
-            draw_text(screen, game.font, "WASD: move    E: dig out gear (stand still) / give it to the Knight    R: restart",
-                      bottom, "midbottom")
+            self.overlay.fill((0, 0, 0, 0))
+            self.draw_win(self.overlay)
+            screen.blit(pygame.transform.scale_by(self.overlay, ui.UI_SCALE), (0, 0))
+
+    def draw_hud(self, hud):
+        knight, helper = self.knight, self.helper
+        backpack = helper.backpack
+        w = hud.get_width()
+        ui.nine_slice(hud, "panel9", hud.get_rect())
+        ui.draw_text(hud, self.level.name[:12], (w // 2, 8), "gold", anchor="midtop")
+
+        ui.draw_text(hud, "Knight", (w // 2, 22), anchor="midtop", alpha=DIM)
+        draw_slot(hud, knight.tool, (w // 2 - 9, 39))
+        draw_slot(hud, knight.item, (w // 2 + 9, 39))
+
+        ui.draw_text(hud, "Helper", (w // 2, 52), anchor="midtop", alpha=DIM)
+        draw_slot(hud, helper.held, (w // 2, 69))
+        if helper.digging:
+            progress = 1 - helper.dig_left / backpack.bag.extract_time
+            bar = pygame.Rect(w // 2 - 15, 78, 30, 3)
+            pygame.draw.rect(hud, SLOT_COLOR, bar)
+            pygame.draw.rect(hud, GOLD, (bar.x, bar.y, round(bar.w * progress), bar.h))
+
+        bag = backpack.bag
+        ui.draw_text(hud, bag.name, (w // 2, 86), "gold", anchor="midtop")
+        ui.draw_text(hud, f"{len(backpack.queue)}/{bag.slots}  {bag.extract_time}s", (w // 2, 95), anchor="midtop")
+        for slot in range(bag.slots):
+            col, row = slot % 3, slot // 3
+            gear = backpack.queue[slot] if slot < len(backpack.queue) else None
+            draw_slot(hud, gear, (w // 2 - 18 + col * 18, 114 + row * 18), marked=slot == 0 and gear is not None)
+
+        hints = ["E dig/give", "R restart", "ESC pack"]
+        if not knight.walking:
+            ui.draw_text(hud, "SPACE go!", (w // 2, 140), "gold", anchor="midtop")
+        for i, hint in enumerate(hints):
+            ui.draw_text(hud, hint, (w // 2, 150 + i * 9), anchor="midtop", alpha=DIM)
+
+    def draw_win(self, overlay):
+        rect = pygame.Rect(0, 0, 172, 50)
+        rect.center = overlay.get_rect().center
+        ui.nine_slice(overlay, "panel9", rect)
+        ui.draw_text(overlay, "Level clear!", (rect.centerx, rect.y + 12), "gold", scale=2, anchor="midtop")
+        ui.draw_text(overlay, "ENTER: continue", (rect.centerx, rect.y + 32), anchor="midtop")
