@@ -1,0 +1,129 @@
+{
+ "columns": 4,
+ "image": "helper_full_gear.png",
+ "imageheight": 96,
+ "imagewidth": 96,
+ "margin": 0,
+ "name": "helper_full_gear",
+ "spacing": 0,
+ "tilecount": 16,
+ "tiledversion": "1.12.2",
+ "tileheight": 24,
+ "tilewidth": 24,
+ "tiles": [
+  {
+   "id": 0,
+   "properties": [
+    {
+     "name": "direction",
+     "type": "string",
+     "value": "down"
+    }
+   ],
+   "animation": [
+    {
+     "tileid": 0,
+     "duration": 125
+    },
+    {
+     "tileid": 1,
+     "duration": 125
+    },
+    {
+     "tileid": 2,
+     "duration": 125
+    },
+    {
+     "tileid": 3,
+     "duration": 125
+    }
+   ]
+  },
+  {
+   "id": 4,
+   "properties": [
+    {
+     "name": "direction",
+     "type": "string",
+     "value": "up"
+    }
+   ],
+   "animation": [
+    {
+     "tileid": 4,
+     "duration": 125
+    },
+    {
+     "tileid": 5,
+     "duration": 125
+    },
+    {
+     "tileid": 6,
+     "duration": 125
+    },
+    {
+     "tileid": 7,
+     "duration": 125
+    }
+   ]
+  },
+  {
+   "id": 8,
+   "properties": [
+    {
+     "name": "direction",
+     "type": "string",
+     "value": "left"
+    }
+   ],
+   "animation": [
+    {
+     "tileid": 8,
+     "duration": 125
+    },
+    {
+     "tileid": 9,
+     "duration": 125
+    },
+    {
+     "tileid": 10,
+     "duration": 125
+    },
+    {
+     "tileid": 11,
+     "duration": 125
+    }
+   ]
+  },
+  {
+   "id": 12,
+   "properties": [
+    {
+     "name": "direction",
+     "type": "string",
+     "value": "right"
+    }
+   ],
+   "animation": [
+    {
+     "tileid": 12,
+     "duration": 125
+    },
+    {
+     "tileid": 13,
+     "duration": 125
+    },
+    {
+     "tileid": 14,
+     "duration": 125
+    },
+    {
+     "tileid": 15,
+     "duration": 125
+    }
+   ]
+  }
+ ],
+ "type": "tileset",
+ "version": "1.10"
+}

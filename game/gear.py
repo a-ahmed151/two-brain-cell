@@ -1,4 +1,4 @@
-"""Gear the Knight can hold, and gear lying on the floor. See "Gear" in GAME_DESIGN.md."""
+"""Gear the Knight can hold. See "Gear" in GAME_DESIGN.md."""
 
 from dataclasses import dataclass
 
@@ -41,17 +41,3 @@ def draw_icon(surface, font, gear, center, size=ICON_SIZE):
     letter = font.render(gear_type.name[0], True, (20, 20, 25))
     surface.blit(letter, letter.get_rect(center=rect.center))
 
-
-class DroppedGear:
-    """Gear the Knight dropped. The Helper walks over it to put it back in the bag."""
-
-    def __init__(self, gear, pos):
-        self.gear = gear
-        self.rect = pygame.Rect(0, 0, ICON_SIZE, ICON_SIZE)
-        self.rect.center = pos
-        # Not collectable until the Helper has stepped off it, so gear dropped
-        # right next to them doesn't jump straight back into the bag.
-        self.armed = False
-
-    def draw(self, surface, font):
-        draw_icon(surface, font, self.gear, self.rect.center)

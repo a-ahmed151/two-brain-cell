@@ -5,6 +5,7 @@ object conventions.
 """
 
 import json
+import os
 from dataclasses import dataclass
 
 import pygame
@@ -16,13 +17,16 @@ class Level:
     width: int  # in tiles
     height: int
     tile_size: int
-    floor: list[list[int]]  # [row][col], 0 = empty
+    floor: list[list[int]]  # [row][col] tile gids, 0 = empty
+    wall_tiles: list[list[int]]
     walls: list[list[bool]]
+    tileset: dict  # first embedded Tiled tileset; "image" is resolved to a path from the project root
     path: list[pygame.Vector2]  # Knight's route in pixels; path[0] is his start
     helper_start: pygame.Vector2
     exit_pos: pygame.Vector2
     unlocks_bag: str | None  # bag the player gets when this level starts
     gear_pool: list[str]
+    knight_gear: list[str]  # what the Knight holds at the start, outside the bag
     obstacles: list[dict]  # everything else on the objects layer
 
     @property
@@ -56,11 +60,16 @@ def load_level(filename):
         layer = layers.get(layer_name)
         if layer is None:
             return [[0] * width for _ in range(height)]
-        cells = layer["data"]
+        # The top bits of a gid are Tiled's flip flags; we don't draw flipped tiles.
+        cells = [gid & 0x0FFFFFFF for gid in layer["data"]]
         return [cells[row * width:(row + 1) * width] for row in range(height)]
 
     floor = grid("floor")
-    walls = [[gid != 0 for gid in row] for row in grid("walls")]
+    wall_tiles = grid("walls")
+    walls = [[gid != 0 for gid in row] for row in wall_tiles]
+
+    tileset = dict(data["tilesets"][0])
+    tileset["image"] = os.path.normpath(os.path.join(os.path.dirname(filename), tileset["image"]))
 
     path = []
     for obj in layers["path"]["objects"]:
@@ -83,7 +92,8 @@ def load_level(filename):
         else:
             obstacles.append({"kind": kind, "rect": pygame.Rect(obj["x"], obj["y"], obj["width"], obj["height"])})
 
-    gear_pool = [g.strip() for g in props.get("gear_pool", "").split(",") if g.strip()]
+    def gear_list(prop):
+        return [g.strip() for g in props.get(prop, "").split(",") if g.strip()]
 
     return Level(
         name=props.get("name", "Untitled"),
@@ -91,11 +101,27 @@ def load_level(filename):
         height=height,
         tile_size=data["tilewidth"],
         floor=floor,
+        wall_tiles=wall_tiles,
         walls=walls,
+        tileset=tileset,
         path=path,
         helper_start=helper_start or pygame.Vector2(path[0]),
         exit_pos=exit_pos or pygame.Vector2(path[-1]),
         unlocks_bag=props.get("unlocks_bag") or None,
-        gear_pool=gear_pool,
+        gear_pool=gear_list("gear_pool"),
+        knight_gear=gear_list("knight_gear"),
         obstacles=obstacles,
     )
+
+
+def load_tiles(tileset):
+    """Cut a Tiled tileset image into tiles, keyed by gid. Needs the display to exist."""
+    image = pygame.image.load(tileset["image"]).convert_alpha()
+    tw, th = tileset["tilewidth"], tileset["tileheight"]
+    margin, spacing = tileset.get("margin", 0), tileset.get("spacing", 0)
+    tiles = {}
+    for i in range(tileset["tilecount"]):
+        col, row = i % tileset["columns"], i // tileset["columns"]
+        rect = (margin + col * (tw + spacing), margin + row * (th + spacing), tw, th)
+        tiles[tileset["firstgid"] + i] = image.subsurface(rect)
+    return tiles
