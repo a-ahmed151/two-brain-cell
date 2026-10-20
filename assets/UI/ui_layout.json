@@ -1,0 +1,372 @@
+{
+ "main": {
+  "widgets": [
+   {
+    "type": "button",
+    "id": "play",
+    "x": 112,
+    "y": 60,
+    "w": 96,
+    "h": 20,
+    "label": "PLAY",
+    "variant": "red"
+   },
+   {
+    "type": "button",
+    "id": "levels",
+    "x": 112,
+    "y": 83,
+    "w": 96,
+    "h": 20,
+    "label": "LEVELS",
+    "variant": "stone"
+   },
+   {
+    "type": "button",
+    "id": "settings",
+    "x": 112,
+    "y": 106,
+    "w": 96,
+    "h": 20,
+    "label": "SETTINGS",
+    "variant": "stone"
+   },
+   {
+    "type": "button",
+    "id": "quit",
+    "x": 112,
+    "y": 129,
+    "w": 96,
+    "h": 20,
+    "label": "QUIT",
+    "variant": "stone"
+   }
+  ],
+  "title": {
+   "name": "title_main",
+   "y": 10
+  },
+  "torches": [
+   [
+    40,
+    40
+   ],
+   [
+    264,
+    40
+   ]
+  ],
+  "knight": {
+   "mode": "walk",
+   "y": 118,
+   "xmin": 40,
+   "xmax": 232
+  }
+ },
+ "levels": {
+  "widgets": [
+   {
+    "type": "icon",
+    "id": "back",
+    "icon": "back",
+    "x": 6,
+    "y": 6,
+    "w": 18,
+    "h": 18
+   },
+   {
+    "type": "icon",
+    "id": "prev",
+    "icon": "left",
+    "x": 8,
+    "y": 82,
+    "w": 18,
+    "h": 18
+   },
+   {
+    "type": "icon",
+    "id": "next",
+    "icon": "right",
+    "x": 294,
+    "y": 82,
+    "w": 18,
+    "h": 18
+   },
+   {
+    "type": "level",
+    "id": "lv1",
+    "x": 58,
+    "y": 50,
+    "w": 28,
+    "h": 28,
+    "level": 1,
+    "state": "done",
+    "stars": 3,
+    "name": "THE CELLAR DOOR"
+   },
+   {
+    "type": "level",
+    "id": "lv2",
+    "x": 102,
+    "y": 50,
+    "w": 28,
+    "h": 28,
+    "level": 2,
+    "state": "done",
+    "stars": 2,
+    "name": "RAT PROBLEMS"
+   },
+   {
+    "type": "level",
+    "id": "lv3",
+    "x": 146,
+    "y": 50,
+    "w": 28,
+    "h": 28,
+    "level": 3,
+    "state": "done",
+    "stars": 3,
+    "name": "BARREL ROLL"
+   },
+   {
+    "type": "level",
+    "id": "lv4",
+    "x": 190,
+    "y": 50,
+    "w": 28,
+    "h": 28,
+    "level": 4,
+    "state": "current",
+    "stars": 0,
+    "name": "SPIKY SITUATION"
+   },
+   {
+    "type": "level",
+    "id": "lv5",
+    "x": 234,
+    "y": 50,
+    "w": 28,
+    "h": 28,
+    "level": 5,
+    "state": "locked",
+    "stars": 0,
+    "name": "???"
+   },
+   {
+    "type": "level",
+    "id": "lv6",
+    "x": 58,
+    "y": 98,
+    "w": 28,
+    "h": 28,
+    "level": 6,
+    "state": "locked",
+    "stars": 0,
+    "name": "???"
+   },
+   {
+    "type": "level",
+    "id": "lv7",
+    "x": 102,
+    "y": 98,
+    "w": 28,
+    "h": 28,
+    "level": 7,
+    "state": "locked",
+    "stars": 0,
+    "name": "???"
+   },
+   {
+    "type": "level",
+    "id": "lv8",
+    "x": 146,
+    "y": 98,
+    "w": 28,
+    "h": 28,
+    "level": 8,
+    "state": "locked",
+    "stars": 0,
+    "name": "???"
+   },
+   {
+    "type": "level",
+    "id": "lv9",
+    "x": 190,
+    "y": 98,
+    "w": 28,
+    "h": 28,
+    "level": 9,
+    "state": "locked",
+    "stars": 0,
+    "name": "???"
+   },
+   {
+    "type": "level",
+    "id": "lv10",
+    "x": 234,
+    "y": 98,
+    "w": 28,
+    "h": 28,
+    "level": 10,
+    "state": "locked",
+    "stars": 0,
+    "name": "???"
+   }
+  ],
+  "worlds": [
+   "WORLD 1 - THE CELLAR",
+   "WORLD 2 - THE CRYPT"
+  ],
+  "torches": [
+   [
+    8,
+    100
+   ],
+   [
+    296,
+    100
+   ]
+  ],
+  "title": {
+   "name": "title_levels",
+   "y": 6
+  },
+  "knight": {
+   "mode": "idle",
+   "x": 4,
+   "y": 134
+  },
+  "info": {
+   "x": 160,
+   "y": 160
+  },
+  "coins": {
+   "x": 262,
+   "y": 9,
+   "value": 125
+  }
+ },
+ "settings": {
+  "widgets": [
+   {
+    "type": "icon",
+    "id": "back",
+    "icon": "back",
+    "x": 6,
+    "y": 6,
+    "w": 18,
+    "h": 18
+   },
+   {
+    "type": "slider",
+    "id": "music",
+    "x": 144,
+    "y": 43,
+    "w": 80,
+    "h": 8,
+    "value": 70,
+    "icon": "music"
+   },
+   {
+    "type": "slider",
+    "id": "sound",
+    "x": 144,
+    "y": 63,
+    "w": 80,
+    "h": 8,
+    "value": 50,
+    "icon": "sound"
+   },
+   {
+    "type": "toggle",
+    "id": "fullscreen",
+    "x": 238,
+    "y": 81,
+    "w": 26,
+    "h": 12,
+    "value": true
+   },
+   {
+    "type": "toggle",
+    "id": "shake",
+    "x": 238,
+    "y": 101,
+    "w": 26,
+    "h": 12,
+    "value": true
+   },
+   {
+    "type": "icon",
+    "id": "lang_prev",
+    "icon": "left",
+    "x": 144,
+    "y": 118,
+    "w": 18,
+    "h": 18
+   },
+   {
+    "type": "icon",
+    "id": "lang_next",
+    "icon": "right",
+    "x": 246,
+    "y": 118,
+    "w": 18,
+    "h": 18
+   },
+   {
+    "type": "button",
+    "id": "defaults",
+    "x": 72,
+    "y": 158,
+    "w": 84,
+    "h": 18,
+    "label": "DEFAULTS",
+    "variant": "stone"
+   },
+   {
+    "type": "button",
+    "id": "save",
+    "x": 164,
+    "y": 158,
+    "w": 84,
+    "h": 18,
+    "label": "SAVE",
+    "variant": "red"
+   }
+  ],
+  "languages": [
+   "ENGLISH",
+   "FRANCAIS",
+   "ESPANOL",
+   "DEUTSCH",
+   "ITALIANO"
+  ],
+  "lang_y": 124,
+  "torches": [
+   [
+    14,
+    70
+   ],
+   [
+    290,
+    70
+   ]
+  ],
+  "title": {
+   "name": "title_settings",
+   "y": 6
+  },
+  "rows": [
+   42,
+   62,
+   82,
+   102,
+   122
+  ],
+  "knight": {
+   "mode": "scratch",
+   "x": 284,
+   "y": 134
+  }
+ }
+}

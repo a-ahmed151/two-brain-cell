@@ -1,0 +1,129 @@
+{
+ "frameWidth": 32,
+ "frameHeight": 32,
+ "image": "chibi_knight.png",
+ "background": "transparent",
+ "layout": "one row per animation; columns 0-6 face right, columns 7-13 face left",
+ "animations": {
+  "idle": {
+   "row": 0,
+   "frames": 4,
+   "fps": 5,
+   "loop": true
+  },
+  "idle_side": {
+   "row": 1,
+   "frames": 4,
+   "fps": 5,
+   "loop": true
+  },
+  "idle_up": {
+   "row": 2,
+   "frames": 4,
+   "fps": 5,
+   "loop": true
+  },
+  "walk_down": {
+   "row": 3,
+   "frames": 4,
+   "fps": 8,
+   "loop": true
+  },
+  "walk_side": {
+   "row": 4,
+   "frames": 6,
+   "fps": 10,
+   "loop": true
+  },
+  "walk_up": {
+   "row": 5,
+   "frames": 4,
+   "fps": 8,
+   "loop": true
+  },
+  "run_down": {
+   "row": 6,
+   "frames": 4,
+   "fps": 12,
+   "loop": true
+  },
+  "run_side": {
+   "row": 7,
+   "frames": 6,
+   "fps": 12,
+   "loop": true
+  },
+  "jump_side": {
+   "row": 8,
+   "frames": 7,
+   "fps": 10,
+   "loop": false
+  },
+  "jump_down": {
+   "row": 9,
+   "frames": 6,
+   "fps": 10,
+   "loop": false
+  },
+  "sneak_side": {
+   "row": 10,
+   "frames": 6,
+   "fps": 6,
+   "loop": true
+  },
+  "sneak_down": {
+   "row": 11,
+   "frames": 4,
+   "fps": 5,
+   "loop": true
+  },
+  "attack": {
+   "row": 12,
+   "frames": 5,
+   "fps": 12,
+   "loop": false
+  },
+  "attack_side": {
+   "row": 13,
+   "frames": 5,
+   "fps": 12,
+   "loop": false
+  },
+  "block": {
+   "row": 14,
+   "frames": 3,
+   "fps": 6,
+   "loop": false
+  },
+  "hurt": {
+   "row": 15,
+   "frames": 2,
+   "fps": 8,
+   "loop": false
+  },
+  "death": {
+   "row": 16,
+   "frames": 4,
+   "fps": 6,
+   "loop": false
+  },
+  "dizzy": {
+   "row": 17,
+   "frames": 4,
+   "fps": 6,
+   "loop": true
+  },
+  "scratch": {
+   "row": 18,
+   "frames": 4,
+   "fps": 5,
+   "loop": true
+  },
+  "victory": {
+   "row": 19,
+   "frames": 4,
+   "fps": 8,
+   "loop": true
+  }
+ }
+}
