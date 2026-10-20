@@ -84,8 +84,18 @@ The puzzle has two halves: **planning** (which bag, what to pack and in what ord
 | Plank | One pit |
 | Bomb | Cracked wall or a group of enemies |
 | Health Potion | Saves him once from a lethal hit |
+| Poison | Final level only. He drinks it the moment he's handed it, and dies |
 
 Overlap is intentional: a cracked wall can take the Pickaxe (reusable, but uses up the tool slot) or a Bomb (frees the tool slot, but costs a backpack slot).
+
+## The betrayal (final level)
+Every level, the Knight takes the 1,000 gold and the credit, and the Helper gets stale bread. On the last level, the Helper has had enough.
+
+- The final level's gear pool includes **Poison** (next to a real Health Potion).
+- Handing the Knight the Poison kills him on the spot: he drinks it without a second thought and plays his death animation.
+- On this level, **killing him is the win.** If he reaches the exit alive, he takes the credit again and you retry.
+- Then the ending plays: his last words ("Tell my mother... I was right..."), the Helper keeps the gold, the Knight gets the stale bread, and "Player 2 wins."
+- The level still has to be survived: you need the right gear to get him far enough, and a spot to dig out the Poison and catch him before the exit.
 
 ## Puzzle design levers
 - **Bag choice:** the main lever. Count the obstacles and measure the gaps between them: many obstacles far apart points to the Hauler, few obstacles close together points to the Pouch.
@@ -114,10 +124,9 @@ Overlap is intentional: a cracked wall can take the Pickaxe (reusable, but uses 
 | 4 | **Cave-in** | Pouch (unlocked here) | Rocks and slimes packed tight; only a fast dig makes the gaps. Pickaxe over Bomb, and cycle the Sword back in. |
 | 5 | **Lights Out** | Satchel or Pouch | Dark room with an enemy inside: Torch, then Sword right after |
 | 6 | **The Gauntlet** | Player's choice | A long, spread-out first half and a tight cluster at the end. No bag is perfect; plan around its weakness. Red herrings in the pool. |
+| Last | **The Betrayal** | Player's choice | Get him far enough, then hand him the Poison before he reaches the exit (see The betrayal) |
 
-Levels 1–4 are the must-haves (they introduce all three bags). 5–6 are stretch goals. An **Arrow Hall** level (Shield, plus a hand-off right after) is a further stretch.
-
-Levels 1–4 are the must-haves. 5–6 are stretch goals.
+Levels 1–4 and The Betrayal are the must-haves (they introduce all three bags and end the story). 5–6 are stretch goals. An **Arrow Hall** level (Shield, plus a hand-off right after) is a further stretch.
 
 ## Level format (Tiled)
 Levels are built in [Tiled](https://www.mapeditor.org/) and exported as **JSON (`.tmj`)**. The game reads them with Python's built-in `json` module, so there's no extra dependency and nothing to break in the `pygbag` web build. Tilesets are saved **embedded** in the map so each level is one file.
@@ -146,6 +155,7 @@ Levels are built in [Tiled](https://www.mapeditor.org/) and exported as **JSON (
 | `unlocks_bag` | string | `hauler` (optional; bag unlocked when this level starts) |
 | `gear_pool` | string | `sword,key,key,plank,bomb` |
 | `knight_gear` | string | `sword,key` (what the Knight starts holding; one tool and/or one item) |
+| `betrayal` | bool | `true` on the final level only: poisoning the Knight wins, reaching the exit loses |
 
 Bag stats live in code, not in maps, so they can be tuned in one place.
 
@@ -153,7 +163,7 @@ Bag stats live in code, not in maps, so they can be tuned in one place.
 - Tile size 16×16, to match the art.
 - Map size fits one screen: 20×15 tiles (320×240 px, shown at 960×720).
 - Draw the Knight's path through the obstacle objects; he handles an obstacle when he reaches it.
-- Files go in `levels/`, named `01_the_slime.tmj`, `02_locked_in.tmj`, and so on; the number sets the order.
+- Files go in `levels/`, named `01_the_slime.tmj`, `02_locked_in.tmj`, and so on; the number sets the order. The final level is `99_the_betrayal.tmj` so it always comes last.
 
 ## Scope plan
 **Day 1: core**

@@ -10,7 +10,7 @@ import pygame
 
 from game import ui
 from game.backpack import BAGS
-from game.entities import knight_frame
+from game.entities import helper_frame, knight_frame
 from game.gear import GEAR, draw_icon
 from game.level import load_level, load_tiles
 from game.play import PlayScene
@@ -26,6 +26,11 @@ DOWN_KEYS = (pygame.K_DOWN, pygame.K_s)
 LEFT_KEYS = (pygame.K_LEFT, pygame.K_a)
 RIGHT_KEYS = (pygame.K_RIGHT, pygame.K_d)
 CONFIRM_KEYS = (pygame.K_RETURN, pygame.K_SPACE)
+
+
+def layout_feet(x, y):
+    """The UI layout places the Knight as a 32x32 frame by its top-left; this is where his feet go."""
+    return x + 16, y + 32
 
 
 class MenuScene(Scene):
@@ -150,7 +155,8 @@ class IntroScene(MenuScene):
         distance = (self.time * self.KNIGHT_SPEED) % (2 * span)
         going_left = distance > span
         x = k["xmin"] + (2 * span - distance if going_left else distance)
-        canvas.blit(knight_frame("walk_side", self.time, facing_left=going_left), (x, k["y"]))
+        image = knight_frame("walk_left" if going_left else "walk_right", self.time)
+        canvas.blit(image, image.get_rect(midbottom=layout_feet(x, k["y"])))
 
         for i, name in enumerate(self.BUTTONS):
             y = self.BUTTON_TOP + i * self.BUTTON_GAP
@@ -210,7 +216,8 @@ class LevelSelectScene(MenuScene):
         canvas.blit(title, title.get_rect(midtop=(160, layout["title"]["y"])))
         self.draw_torches(canvas, layout["torches"])
         k = layout["knight"]
-        canvas.blit(knight_frame("idle", self.time), (k["x"], k["y"]))
+        image = knight_frame("idle_down", self.time)
+        canvas.blit(image, image.get_rect(midbottom=layout_feet(k["x"], k["y"])))
 
         back = canvas.blit(ui.sprite(f"icon_back_{self.state('back', False)}"), (6, 6))
         self.hotspots.add(back, "back")
@@ -236,7 +243,11 @@ class LevelSelectScene(MenuScene):
 
 
 class ItemSelectScene(MenuScene):
-    """The Pack screen: pick a bag, then which gear goes in it and in what order."""
+    """The Pack screen: pick a bag, then which gear goes in it and in what order.
+
+    The keyboard works on one section at a time, top to bottom: bags, gear, start.
+    W/S at a section's edge moves to the next one; ENTER/SPACE acts on what's focused.
+    """
 
     PANEL_LEFT, PANEL_RIGHT = 40, 280
     CARD_W, CARD_H, CARD_GAP, CARD_Y = 80, 26, 6, 47
@@ -255,7 +266,8 @@ class ItemSelectScene(MenuScene):
             self.new_bag = bag
         self.bag_id = bag_id or self.new_bag or game.unlocked_bags[0]
         self.picked = list(picked or [])  # indices into the gear pool, in queue order
-        self.cursor = 0
+        self.cursor = 0  # focused gear, when the gear section is focused
+        self.section = "bags"  # "bags", "gear" or "start"
 
     @property
     def bag(self):
@@ -279,8 +291,13 @@ class ItemSelectScene(MenuScene):
         self.game.change_scene(LevelSelectScene(self.game, self.level_index))
 
     def on_hover(self, key):
-        if key[0] == "gear":
-            self.cursor = key[1]
+        kind, value = key
+        if kind == "bag":
+            self.section = "bags"
+        elif kind == "gear":
+            self.section, self.cursor = "gear", value
+        elif kind == "start":
+            self.section = "start"
 
     def on_click(self, key):
         kind, value = key
@@ -294,21 +311,44 @@ class ItemSelectScene(MenuScene):
             self.back()
 
     def on_key(self, key):
-        pool = self.level.gear_pool
+        if key == pygame.K_ESCAPE:
+            self.back()
+        elif self.section == "bags":
+            self.bags_key(key)
+        elif self.section == "gear":
+            self.gear_key(key)
+        elif key in UP_KEYS:
+            self.section = "gear" if self.level.gear_pool else "bags"
+        elif key in CONFIRM_KEYS:
+            self.start()
+
+    def bags_key(self, key):
         bags = self.game.unlocked_bags
         if key in LEFT_KEYS or key in RIGHT_KEYS:
             step = -1 if key in LEFT_KEYS else 1
             self.choose_bag(bags[(bags.index(self.bag_id) + step) % len(bags)])
-        elif key in UP_KEYS and pool:
-            self.cursor = (self.cursor - 1) % len(pool)
-        elif key in DOWN_KEYS and pool:
-            self.cursor = (self.cursor + 1) % len(pool)
-        elif key == pygame.K_SPACE and pool:
+        elif key in DOWN_KEYS or key in CONFIRM_KEYS:
+            self.section = "gear" if self.level.gear_pool else "start"
+
+    def gear_key(self, key):
+        count, cols = len(self.level.gear_pool), self.GEAR_COLS
+        row, col = divmod(self.cursor, cols)
+        if key in LEFT_KEYS and col > 0:
+            self.cursor -= 1
+        elif key in RIGHT_KEYS and col < cols - 1 and self.cursor + 1 < count:
+            self.cursor += 1
+        elif key in UP_KEYS:
+            if row == 0:
+                self.section = "bags"
+            else:
+                self.cursor -= cols
+        elif key in DOWN_KEYS:
+            if (row + 1) * cols >= count:
+                self.section = "start"  # already on the last row
+            else:
+                self.cursor = min(self.cursor + cols, count - 1)
+        elif key in CONFIRM_KEYS:
             self.toggle(self.cursor)
-        elif key == pygame.K_RETURN:
-            self.start()
-        elif key == pygame.K_ESCAPE:
-            self.back()
 
     def draw_canvas(self, canvas):
         canvas.blit(ui.background("levels_bg"), (0, 0))
@@ -322,14 +362,14 @@ class ItemSelectScene(MenuScene):
         self.draw_queue(canvas)
 
         start = ("start", None)
-        ui.button(canvas, self.START_RECT, "Start", "red", self.state(start, False))
+        ui.button(canvas, self.START_RECT, "Start", "red", self.state(start, self.section == "start"))
         self.hotspots.add(self.START_RECT, start)
 
         if self.new_bag:
             new = BAGS[self.new_bag]
             ui.draw_text(canvas, f"New bag unlocked: {new.name} - {new.slots} slots, {new.extract_time}s dig",
                          (160, 152), "gold", anchor="midtop")
-        ui.draw_text(canvas, "A/D bag   W/S, SPACE pack   ENTER start", (160, 166), anchor="midtop", alpha=DIM)
+        ui.draw_text(canvas, "WASD move   ENTER choose   ESC back", (160, 166), anchor="midtop", alpha=DIM)
 
     def draw_bags(self, canvas):
         bags = self.game.unlocked_bags
@@ -345,6 +385,8 @@ class ItemSelectScene(MenuScene):
                          anchor="midtop")
             ui.draw_text(canvas, f"{bag.slots} slots {bag.extract_time}s", (rect.centerx, rect.y + 13),
                          anchor="midtop")
+            if selected and self.section == "bags":
+                pygame.draw.rect(canvas, GOLD, rect.inflate(4, 4), 1)
             self.hotspots.add(rect, key)
             x += self.CARD_W + self.CARD_GAP
 
@@ -354,7 +396,7 @@ class ItemSelectScene(MenuScene):
             col, row = i % self.GEAR_COLS, i // self.GEAR_COLS
             rect = pygame.Rect(self.GEAR_X + col * self.GEAR_COL_W, self.GEAR_Y + row * self.GEAR_ROW_H,
                                self.GEAR_COL_W - 4, self.GEAR_ROW_H)
-            if i == self.cursor:
+            if i == self.cursor and self.section == "gear":
                 pygame.draw.rect(canvas, GOLD, rect.inflate(2, 0), 1)
             draw_icon(canvas, ICON_FONT, gear, (rect.x + 6, rect.centery), size=10)
             packed = i in self.picked
@@ -376,3 +418,48 @@ class ItemSelectScene(MenuScene):
         ui.draw_text(canvas, "Knight holds", (x, 104), alpha=DIM)
         for slot, gear in enumerate(self.level.knight_gear):
             draw_icon(canvas, ICON_FONT, gear, (x + 6 + slot * 14, 120), size=12)
+
+
+class EndingScene(MenuScene):
+    """After the betrayal: the Knight's last words, then the Helper finally gets paid."""
+
+    LINES = [
+        ("Tell my mother... I was right...", "cream"),
+        ("The Knight never saw it coming.", "cream"),
+        ("This time, the Helper keeps the gold.", "cream"),
+        ("And the Knight gets the stale bread.", "cream"),
+        ("Player 2 wins.", "gold"),
+    ]
+    FIRST_LINE, LINE_DELAY = 1.0, 1.6
+
+    def lines_shown(self):
+        return max(0, min(len(self.LINES), int((self.time - self.FIRST_LINE) / self.LINE_DELAY) + 1))
+
+    def advance(self):
+        if self.lines_shown() < len(self.LINES):
+            self.time = self.FIRST_LINE + self.LINE_DELAY * len(self.LINES)  # skip to the end
+        else:
+            self.game.change_scene(IntroScene(self.game))
+
+    def on_click(self, key):
+        self.advance()
+
+    def on_key(self, key):
+        if key in CONFIRM_KEYS or key == pygame.K_ESCAPE:
+            self.advance()
+
+    def draw_canvas(self, canvas):
+        canvas.blit(ui.background("levels_bg"), (0, 0))
+        ui.draw_text(canvas, "The End", (160, 15), "gold", scale=2, anchor="center")
+        # Click anywhere to continue.
+        self.hotspots.add(canvas.get_rect(), "continue")
+
+        knight = knight_frame("death", self.time)
+        canvas.blit(knight, knight.get_rect(midbottom=(144, 76)))
+        helper = helper_frame("large", "idle_left", self.time)  # facing the Knight, bag full of gold
+        canvas.blit(helper, helper.get_rect(midbottom=(176, 76)))
+
+        for i, (line, color) in enumerate(self.LINES[:self.lines_shown()]):
+            ui.draw_text(canvas, line, (160, 86 + i * 12), color, anchor="midtop")
+        if self.lines_shown() == len(self.LINES):
+            ui.draw_text(canvas, "ENTER: main menu", (160, 160), anchor="midtop", alpha=DIM)

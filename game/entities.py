@@ -1,5 +1,6 @@
 import json
 import math
+import os
 from functools import cache
 
 import pygame
@@ -11,53 +12,65 @@ HELPER_SPEED = 65
 HELPER_SIZE = 9  # collision box, in pixels
 HANDOFF_RANGE = 32  # max distance between Helper and Knight centers for a hand-off
 
-HELPER_SHEET = "assets/helper_full_gear.png"  # 4x4 grid of 24x24 frames; rows face down, up, left, right
-HELPER_FRAME = 24
-HELPER_ANIM_FPS = 8
-_helper_frames = None
+HELPER_SHEETS = "assets/helper/{size}/helper_{size}.json"  # one sheet per backpack size (Bag.sprite)
 
 
-def helper_frames():
-    """Frames as [direction][frame], loaded on first use (needs the display to exist)."""
-    global _helper_frames
-    if _helper_frames is None:
-        sheet = pygame.image.load(HELPER_SHEET).convert_alpha()
-        size = HELPER_FRAME
-        _helper_frames = [[sheet.subsurface((col * size, row * size, size, size)) for col in range(4)]
-                          for row in range(4)]
-    return _helper_frames
+@cache
+def helper_animations(size):
+    """{name: (frames, fps, loop)} for one Helper sheet, loaded on first use (needs the display to exist)."""
+    path = HELPER_SHEETS.format(size=size)
+    with open(path) as f:
+        data = json.load(f)
+    sheet = pygame.image.load(os.path.join(os.path.dirname(path), data["image"])).convert_alpha()
+    w, h = data["frameWidth"], data["frameHeight"]
+    return {name: ([sheet.subsurface((col * w, anim["row"] * h, w, h)) for col in range(anim["frames"])],
+                   anim["fps"], anim["loop"])
+            for name, anim in data["animations"].items()}
 
 
-KNIGHT_SHEET = "assets/knight/chibi_knight.json"  # one row per animation; cols 0-6 face right, 7-13 face left
-KNIGHT_FACING_LEFT_COL = 7
+def helper_frame(size, name, time):
+    """The frame of a Helper animation `time` seconds after it started."""
+    frames, fps, loop = helper_animations(size)[name]
+    index = int(time * fps)
+    return frames[index % len(frames) if loop else min(index, len(frames) - 1)]
+
+
+KNIGHT_SHEET = "assets/knight.png"  # 4x4 grid of 32x32 walk frames; rows face down, up, left, right
+KNIGHT_FRAME = 32
+KNIGHT_DIRECTIONS = ("down", "up", "left", "right")
+KNIGHT_WALK_FPS = 8
 
 
 @cache
 def knight_animations():
-    """{name: (right frames, left frames, fps, loop)}, loaded on first use (needs the display to exist)."""
-    with open(KNIGHT_SHEET) as f:
-        data = json.load(f)
-    sheet = pygame.image.load(f"assets/knight/{data['image']}").convert_alpha()
-    w, h = data["frameWidth"], data["frameHeight"]
+    """{name: (frames, fps)}, loaded on first use (needs the display to exist).
+
+    The sheet only has walk cycles, so standing still is the first walk frame,
+    victory is standing facing down, and death is that frame tipped over."""
+    sheet = pygame.image.load(KNIGHT_SHEET).convert_alpha()
+    size = KNIGHT_FRAME
     animations = {}
-    for name, anim in data["animations"].items():
-        y = anim["row"] * h
-        right = [sheet.subsurface((col * w, y, w, h)) for col in range(anim["frames"])]
-        left = [sheet.subsurface(((KNIGHT_FACING_LEFT_COL + col) * w, y, w, h)) for col in range(anim["frames"])]
-        animations[name] = (right, left, anim["fps"], anim["loop"])
+    for row, direction in enumerate(KNIGHT_DIRECTIONS):
+        walk = [sheet.subsurface((col * size, row * size, size, size)) for col in range(4)]
+        animations[f"walk_{direction}"] = (walk, KNIGHT_WALK_FPS)
+        animations[f"idle_{direction}"] = (walk[:1], 1)
+    animations["victory"] = animations["idle_down"]
+    fallen = pygame.transform.rotate(animations["idle_down"][0][0], 90)
+    lying = pygame.Surface((size, size), pygame.SRCALPHA)  # same anchor as the others: on the floor
+    body = fallen.subsurface(fallen.get_bounding_rect())
+    lying.blit(body, body.get_rect(midbottom=(size // 2, size)))
+    animations["death"] = ([lying], 1)
     return animations
 
 
-def knight_frame(name, time, facing_left=False):
+def knight_frame(name, time):
     """The frame of a knight animation `time` seconds after it started."""
-    right, left, fps, loop = knight_animations()[name]
-    index = int(time * fps)
-    index = index % len(right) if loop else min(index, len(right) - 1)
-    return (left if facing_left else right)[index]
+    frames, fps = knight_animations()[name]
+    return frames[int(time * fps) % len(frames)]
 
 
 class Knight:
-    """Walks the level's path from start to end. Drawn from the chibi knight sprite sheet."""
+    """Walks the level's path from start to end. Drawn from assets/knight.png."""
 
     def __init__(self, path, gear=()):
         self.path = path
@@ -65,6 +78,7 @@ class Knight:
         self.next_point = 1
         self.walking = False
         self.reached_exit = False
+        self.dead = False
         self.tool = None  # reusable gear, kept until replaced
         self.item = None  # one-use gear
         self.facing = (path[1] - path[0]).normalize()
@@ -75,6 +89,11 @@ class Knight:
 
     def receive(self, gear):
         """Put gear in the matching hand. Returns what was in that hand before."""
+        if gear == "poison":
+            # He trusts the Helper completely and drinks it at once.
+            self.dead = True
+            self.walking = False
+            return None
         if GEAR[gear].hand == TOOL:
             old, self.tool = self.tool, gear
         else:
@@ -83,7 +102,7 @@ class Knight:
 
     def update(self, dt):
         self.anim_time += dt
-        if not self.walking or self.reached_exit:
+        if not self.walking or self.reached_exit or self.dead:
             return
         step = KNIGHT_SPEED * dt
         while step > 0 and self.next_point < len(self.path):
@@ -101,23 +120,27 @@ class Knight:
             self.reached_exit = True
 
     def current_animation(self):
+        if self.dead:
+            return "death"
         if self.reached_exit:
             return "victory"
         if abs(self.facing.x) > abs(self.facing.y):
-            return "walk_side" if self.walking else "idle_side"
-        if self.facing.y < 0:
-            return "walk_up" if self.walking else "idle_up"
-        return "walk_down" if self.walking else "idle"
+            direction = "left" if self.facing.x < 0 else "right"
+        else:
+            direction = "up" if self.facing.y < 0 else "down"
+        return f"{'walk' if self.walking else 'idle'}_{direction}"
 
     def draw(self, surface, font):
         name = self.current_animation()
         if name != self.animation:
             self.animation, self.anim_time = name, 0.0
-        image = knight_frame(name, self.anim_time, facing_left=self.facing.x < 0)
+        image = knight_frame(name, self.anim_time)
         # He walks the path with his feet a little below it, so he looks centered on the tile.
         sprite = image.get_rect(midbottom=(self.pos.x, self.pos.y + 7))
         surface.blit(image, sprite)
 
+        if self.dead:
+            return
         # What he's holding, above his head: tool on the left, item on the right.
         for gear, offset in ((self.tool, -5), (self.item, 5)):
             if gear:
@@ -125,7 +148,7 @@ class Knight:
 
 
 class Helper:
-    """Controlled with WASD/arrows. Drawn from the full-gear backpack sprite sheet."""
+    """Controlled with WASD/arrows. Drawn from the sheet matching the bag's size."""
 
     def __init__(self, start, backpack):
         self.rect = pygame.Rect(0, 0, HELPER_SIZE, HELPER_SIZE)
@@ -136,6 +159,10 @@ class Helper:
         self.digging = False
         self.dig_left = 0.0  # seconds until the gear is out of the bag
         self.walk_time = 0.0  # drives the walk animation; 0 while standing still
+        self.give_time = 0.0  # time left on the hand-over animation
+        self.give_side = "right"
+        self.animation = None
+        self.anim_time = 0.0
 
     def in_range(self, knight):
         return pygame.Vector2(self.rect.center).distance_to(knight.pos) <= HANDOFF_RANGE
@@ -147,6 +174,8 @@ class Helper:
         if self.held:
             if self.in_range(knight):
                 gear, self.held = self.held, None
+                self.give_side = "left" if knight.pos.x < self.rect.centerx else "right"
+                self.give_time = self.animation_length(f"give_{self.give_side}")
                 old = knight.receive(gear)
                 if old:
                     # Always fits: the gear just handed over freed its slot.
@@ -155,7 +184,13 @@ class Helper:
             self.digging = True
             self.dig_left = self.backpack.bag.extract_time
 
+    def animation_length(self, name):
+        frames, fps, _ = helper_animations(self.backpack.bag.sprite)[name]
+        return len(frames) / fps
+
     def update(self, dt, keys, level):
+        self.anim_time += dt
+        self.give_time = max(0.0, self.give_time - dt)
         move = pygame.Vector2(
             (keys[pygame.K_d] or keys[pygame.K_RIGHT]) - (keys[pygame.K_a] or keys[pygame.K_LEFT]),
             (keys[pygame.K_s] or keys[pygame.K_DOWN]) - (keys[pygame.K_w] or keys[pygame.K_UP]),
@@ -190,22 +225,41 @@ class Helper:
             self.digging = False
             self.held = self.backpack.take_next()
 
-    def draw(self, surface, font):
-        center = pygame.Vector2(self.rect.center)
+    def facing_name(self):
         if abs(self.facing.x) > abs(self.facing.y):
-            direction = 2 if self.facing.x < 0 else 3
+            return "left" if self.facing.x < 0 else "right"
+        return "up" if self.facing.y < 0 else "down"
+
+    def current_animation(self):
+        if self.digging:
+            return "dig"
+        if self.walk_time > 0:
+            return f"walk_{self.facing_name()}"
+        if self.give_time > 0:
+            return f"give_{self.give_side}"
+        if self.held:
+            return "hold_up"  # hands raised; the gear is drawn above his head
+        return f"idle_{self.facing_name()}"
+
+    def draw(self, surface, font):
+        size = self.backpack.bag.sprite
+        name = self.current_animation()
+        if name != self.animation:
+            self.animation, self.anim_time = name, 0.0
+        if name == "dig":
+            # Stretch the rummage over the bag's extract time, so the glint lands as the gear comes out.
+            progress = 1 - self.dig_left / self.backpack.bag.extract_time
+            time = progress * self.animation_length("dig") * 0.999
         else:
-            direction = 1 if self.facing.y < 0 else 0
-        frame = int(self.walk_time * HELPER_ANIM_FPS) % 4
-        image = helper_frames()[direction][frame]
-        # The collision box is the Helper's feet; the sprite stands on it.
+            time = self.anim_time
+        image = helper_frame(size, name, time)
+        # Sprites are anchored at the feet (bottom-centre); the collision box is the feet.
         sprite = image.get_rect(midbottom=(self.rect.centerx, self.rect.bottom + 1))
         surface.blit(image, sprite)
 
         if self.digging:
-            progress = 1 - self.dig_left / self.backpack.bag.extract_time
             ring = pygame.Rect(0, 0, 17, 17)
-            ring.center = center
+            ring.center = self.rect.center
             pygame.draw.arc(surface, (240, 240, 240), ring, math.pi / 2, math.pi / 2 + progress * math.tau, 2)
         if self.held:
-            draw_icon(surface, font, self.held, (center.x, sprite.top - 4), size=8)
+            draw_icon(surface, font, self.held, (sprite.centerx, sprite.top + 1), size=8)

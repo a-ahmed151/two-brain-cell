@@ -25,6 +25,7 @@ class Level:
     helper_start: pygame.Vector2
     exit_pos: pygame.Vector2
     unlocks_bag: str | None  # bag the player gets when this level starts
+    betrayal: bool  # the final level: poison the Knight before he reaches the exit
     gear_pool: list[str]
     knight_gear: list[str]  # what the Knight holds at the start, outside the bag
     obstacles: list[dict]  # everything else on the objects layer
@@ -108,6 +109,7 @@ def load_level(filename):
         helper_start=helper_start or pygame.Vector2(path[0]),
         exit_pos=exit_pos or pygame.Vector2(path[-1]),
         unlocks_bag=props.get("unlocks_bag") or None,
+        betrayal=bool(props.get("betrayal", False)),
         gear_pool=gear_list("gear_pool"),
         knight_gear=gear_list("knight_gear"),
         obstacles=obstacles,

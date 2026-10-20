@@ -11,13 +11,14 @@ class Bag:
     name: str
     slots: int
     extract_time: float  # seconds to dig out one piece of gear
+    sprite: str  # which Helper sheet in assets/helper/ shows this bag: small, medium or large
 
 
 # Tune here. The player starts with the satchel.
 BAGS = {
-    "satchel": Bag("Satchel", slots=4, extract_time=0.8),
-    "hauler": Bag("Hauler", slots=6, extract_time=1.6),
-    "pouch": Bag("Pouch", slots=2, extract_time=0.3),
+    "satchel": Bag("Satchel", slots=4, extract_time=0.8, sprite="medium"),
+    "hauler": Bag("Hauler", slots=6, extract_time=1.6, sprite="large"),
+    "pouch": Bag("Pouch", slots=2, extract_time=0.3, sprite="small"),
 }
 STARTING_BAG = "satchel"
 

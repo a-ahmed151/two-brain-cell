@@ -17,6 +17,7 @@ HIGHLIGHT_COLOR = (120, 220, 255)
 GOLD = (232, 177, 58)
 SLOT_COLOR = (107, 78, 99)
 DIM = 130
+BETRAYAL_DELAY = 2.5  # seconds of the Knight lying there before the ending
 ICON_FONT = ui.IconFont()
 
 
@@ -73,28 +74,40 @@ class PlayScene(Scene):
         gear = [self.level.gear_pool[i] for i in picked]
         self.knight = Knight(self.level.path, self.level.knight_gear)
         self.helper = Helper(self.level.helper_start, Backpack(BAGS[bag_id], gear))
-        self.won = False
+        # None while playing; otherwise "won" or "lost", shown as a banner: (title, lines).
+        self.outcome = None
+        self.banner = ("", [])
+        self.death_time = 0.0
 
     def back_to_item_select(self):
         from game.menus import ItemSelectScene  # menus imports this module too
         self.game.change_scene(ItemSelectScene(self.game, self.level_index, self.bag_id, self.picked))
 
     def handle_event(self, event):
-        if self.won:
-            if (event.type == pygame.KEYDOWN and event.key in (pygame.K_RETURN, pygame.K_SPACE)) or \
-                    (event.type == pygame.MOUSEBUTTONUP and event.button == 1):
+        confirm = (event.type == pygame.KEYDOWN and event.key in (pygame.K_RETURN, pygame.K_SPACE)) or \
+            (event.type == pygame.MOUSEBUTTONUP and event.button == 1)
+        if self.outcome == "won":
+            if confirm:
                 self.next_level()
+            return
+        if self.outcome == "lost" and confirm:
+            self.restart()
             return
         if event.type != pygame.KEYDOWN:
             return
         if event.key == pygame.K_ESCAPE:
             self.back_to_item_select()
         elif event.key == pygame.K_r:
-            self.game.change_scene(PlayScene(self.game, self.level_index, self.bag_id, self.picked))
+            self.restart()
+        elif self.outcome or self.knight.dead:
+            return
         elif event.key == pygame.K_SPACE:
             self.knight.walking = True
         elif event.key == pygame.K_e:
             self.helper.action(self.knight)
+
+    def restart(self):
+        self.game.change_scene(PlayScene(self.game, self.level_index, self.bag_id, self.picked))
 
     def next_level(self):
         from game.menus import ItemSelectScene, LevelSelectScene
@@ -104,14 +117,32 @@ class PlayScene(Scene):
             self.game.change_scene(LevelSelectScene(self.game, self.level_index))
 
     def update(self, dt):
-        if self.won:
-            self.knight.update(dt)  # keeps his victory animation going
+        knight = self.knight
+        if self.outcome:
+            knight.update(dt)  # keeps his victory/death animation going
             return
         self.helper.update(dt, pygame.key.get_pressed(), self.level)
-        self.knight.update(dt)
-        if self.knight.reached_exit:
-            self.won = True
-            self.game.completed.add(self.level_index)
+        knight.update(dt)
+        if knight.dead:
+            self.death_time += dt
+            if self.death_time < BETRAYAL_DELAY:
+                return
+            if self.level.betrayal:
+                from game.menus import EndingScene
+                self.game.completed.add(self.level_index)
+                self.game.change_scene(EndingScene(self.game))
+            else:
+                self.end("lost", "He's dead.", "That wasn't a health potion.", "ENTER: retry")
+        elif knight.reached_exit:
+            if self.level.betrayal:
+                self.end("lost", "Too late!", "He took the credit again.", "ENTER: retry")
+            else:
+                self.game.completed.add(self.level_index)
+                self.end("won", "Level clear!", "ENTER: continue")
+
+    def end(self, outcome, title, *lines):
+        self.outcome = outcome
+        self.banner = (title, lines)
 
     def draw(self, screen):
         knight, helper = self.knight, self.helper
@@ -129,9 +160,9 @@ class PlayScene(Scene):
         hud_x = world_size[0]
         screen.blit(pygame.transform.scale(self.hud, (screen.get_width() - hud_x, screen.get_height())), (hud_x, 0))
 
-        if self.won:
+        if self.outcome:
             self.overlay.fill((0, 0, 0, 0))
-            self.draw_win(self.overlay)
+            self.draw_banner(self.overlay)
             screen.blit(pygame.transform.scale_by(self.overlay, ui.UI_SCALE), (0, 0))
 
     def draw_hud(self, hud):
@@ -162,14 +193,16 @@ class PlayScene(Scene):
             draw_slot(hud, gear, (w // 2 - 18 + col * 18, 114 + row * 18), marked=slot == 0 and gear is not None)
 
         hints = ["E dig/give", "R restart", "ESC pack"]
-        if not knight.walking:
+        if not knight.walking and not knight.dead and not self.outcome:
             ui.draw_text(hud, "SPACE go!", (w // 2, 140), "gold", anchor="midtop")
         for i, hint in enumerate(hints):
             ui.draw_text(hud, hint, (w // 2, 150 + i * 9), anchor="midtop", alpha=DIM)
 
-    def draw_win(self, overlay):
-        rect = pygame.Rect(0, 0, 172, 50)
+    def draw_banner(self, overlay):
+        title, lines = self.banner
+        rect = pygame.Rect(0, 0, 172, 40 + 10 * len(lines))
         rect.center = overlay.get_rect().center
         ui.nine_slice(overlay, "panel9", rect)
-        ui.draw_text(overlay, "Level clear!", (rect.centerx, rect.y + 12), "gold", scale=2, anchor="midtop")
-        ui.draw_text(overlay, "ENTER: continue", (rect.centerx, rect.y + 32), anchor="midtop")
+        ui.draw_text(overlay, title, (rect.centerx, rect.y + 12), "gold", scale=2, anchor="midtop")
+        for i, line in enumerate(lines):
+            ui.draw_text(overlay, line, (rect.centerx, rect.y + 32 + i * 10), anchor="midtop")
