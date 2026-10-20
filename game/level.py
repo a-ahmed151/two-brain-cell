@@ -21,7 +21,7 @@ class Level:
     path: list[pygame.Vector2]  # Knight's route in pixels; path[0] is his start
     helper_start: pygame.Vector2
     exit_pos: pygame.Vector2
-    backpack_size: int
+    unlocks_bag: str | None  # bag the player gets when this level starts
     gear_pool: list[str]
     obstacles: list[dict]  # everything else on the objects layer
 
@@ -95,7 +95,7 @@ def load_level(filename):
         path=path,
         helper_start=helper_start or pygame.Vector2(path[0]),
         exit_pos=exit_pos or pygame.Vector2(path[-1]),
-        backpack_size=props.get("backpack_size", 4),
+        unlocks_bag=props.get("unlocks_bag") or None,
         gear_pool=gear_pool,
         obstacles=obstacles,
     )

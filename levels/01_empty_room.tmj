@@ -19,9 +19,9 @@
    "value": "Empty Room"
   },
   {
-   "name": "backpack_size",
-   "type": "int",
-   "value": 4
+   "name": "unlocks_bag",
+   "type": "string",
+   "value": ""
   },
   {
    "name": "gear_pool",

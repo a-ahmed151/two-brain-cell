@@ -1,8 +1,26 @@
+from dataclasses import dataclass
+
 import pygame
 
 KNIGHT_SPEED = 60  # pixels per second
 HELPER_SPEED = 130
 HELPER_SIZE = 18  # collision box, in pixels
+
+
+@dataclass(frozen=True)
+class Bag:
+    name: str
+    slots: int
+    extract_time: float  # seconds to dig out one piece of gear
+
+
+# Tune here; see "Backpacks" in GAME_DESIGN.md. The player starts with the satchel.
+BAGS = {
+    "satchel": Bag("Satchel", slots=4, extract_time=0.8),
+    "hauler": Bag("Hauler", slots=6, extract_time=1.6),
+    "pouch": Bag("Pouch", slots=2, extract_time=0.3),
+}
+STARTING_BAG = "satchel"
 
 
 class Knight:
