@@ -25,9 +25,11 @@ You don't fight. You make sure he's holding the right thing at the right time.
 ## The Helper (you)
 - Moves freely with **WASD**
 - Carries **one backpack**, chosen before the run (see Backpacks). Its size limits how much gear you bring.
-- **Action button:** stand next to the Knight and press it to start **digging out the next entry in the queue**. This is the only way gear changes hands, and you can't skip or reorder entries mid-run.
-- **Digging takes time** (the bag's extract time). While digging you **can't move**, and a progress ring shows over the bag. When it fills, the gear goes to the Knight if he's still in hand-off range. If he has walked out of range, the dig is wasted and the gear stays at the front of the queue.
+- **Action button, step 1: dig.** Empty-handed, press it **anywhere** to start digging out the **next entry in the queue**. You can't skip or reorder entries mid-run.
+- **Digging takes time** (the bag's extract time). While digging you **can't move**, and a progress ring shows over the bag. When it fills, the gear is in the Helper's hands (shown above their head).
 - **Moving cancels the dig.** The gear stays in the bag; you have to start over.
+- **Action button, step 2: hand over.** Holding gear, stand next to the Knight and press it again to give it to him instantly. This is the only way gear changes hands. The Knight is highlighted when you're holding gear and in range.
+- **One piece at a time:** you can't dig while your hands are full, so you can only ever be one hand-off ahead.
 - **Swapping drops the old gear:** a new tool replaces his current one and the old tool falls on the floor. The same happens to an unused item. You can walk over it to pick it up again; it goes to the end of the queue, **but only if the bag has a free slot**.
 - **Can die:** enemies and traps hurt the Helper too, and you're a sitting duck while digging. If the Helper dies, the run fails.
 
@@ -40,9 +42,11 @@ You don't fight. You make sure he's holding the right thing at the right time.
 
 Numbers are starting points for tuning. With the Knight at 60 px/s, he walks about 1.5 tiles during a Satchel dig, 3 tiles during a Hauler dig and half a tile during a Pouch dig.
 
+Because you can dig ahead of time, extract speed matters most **right after a hand-off**: the next piece has to be dug out (standing still) before the next obstacle, while you also keep up with the Knight.
+
 **What each bag is for**
 - **Satchel:** the all-rounder. Enough room and speed for the tutorial levels, and a safe fallback later.
-- **Hauler:** levels with many obstacles spread far apart. You can bring everything, but you have to get ahead of the Knight on his path and start digging before he arrives. Hand-offs in tight spots or near hazards are dangerous.
+- **Hauler:** levels with many obstacles spread far apart. You can bring everything, but after each hand-off you lose ground standing still to dig out the next piece, and two obstacles close together can't both be covered in time.
 - **Pouch:** levels with obstacles packed close together. Only two pieces of gear fit, so you win by reusing tools, picking dropped gear back up (and freeing a slot first), and preferring reusable tools over one-use items.
 
 **Bag rules**
@@ -55,12 +59,12 @@ Numbers are starting points for tuning. With the Knight at 60 px/s, he walks abo
 2. **Pick a bag:** choose from the unlocked backpacks. Space vs extract speed.
 3. **Pack:** choose which gear from the level's available pool goes in the bag. Slots are limited by the bag.
 4. **Queue:** put the bag contents in one ordered list.
-5. **Run (real-time):** the Knight starts walking. You follow with WASD, staying close enough and alive, and start digging early enough that each queue entry reaches him in time:
+5. **Run (real-time):** the Knight starts walking. You follow with WASD, staying alive, digging out the next queue entry whenever your hands are free, and catching up to hand it over before he needs it:
    - A tool goes into his tool slot (the old one drops to the floor)
    - An item goes into his item slot (an unused one drops to the floor)
 6. **Result:** he reaches the exit and takes all the credit. If he dies, or you die, you're back at Pack with your bag and choices kept.
 
-The puzzle has two halves: **planning** (which bag, what to pack and in what order) and **execution** (digging at the right moment, in the right spot, without getting killed).
+The puzzle has two halves: **planning** (which bag, what to pack and in what order) and **execution** (digging at the right moment, in a safe spot, and catching up to hand it over without getting killed).
 
 ## Gear
 
@@ -86,8 +90,8 @@ Overlap is intentional: a cracked wall can take the Pickaxe (reusable, but uses 
 - **Bag choice:** the main lever. Count the obstacles and measure the gaps between them: many obstacles far apart points to the Hauler, few obstacles close together points to the Pouch.
 - **Backpack size:** fewer slots than obstacles, so tools have to be reused and items chosen carefully.
 - **Order:** the Torch needs to be in hand before the dark room, but the Sword is needed for the slime inside it.
-- **Timing:** obstacles close together leave little time between hand-offs, and a slow bag may not finish digging in the gap. Hand off too early and he uses the wrong gear on the obstacle before.
-- **Dig spots:** with a slow bag, the Helper needs a safe place on or near the path to stand and dig. Put hazards or walls where the obvious dig spot would be.
+- **Timing:** obstacles close together leave little time between hand-offs, and a slow bag may not finish the next dig in the gap. Hand off too early and he uses the wrong gear on the obstacle before.
+- **Dig spots:** the Helper needs a safe place to stand still and dig, then a route to catch up with the Knight. Put hazards where the obvious dig spot would be, or make the catch-up route long.
 - **Helper routing:** some hand-offs need the Helper to take a shortcut or get ahead of the Knight.
 - **Helper danger:** traps and enemies near the path that the Knight handles easily but the Helper has to dodge.
 - **Dropped gear:** an early tool can be picked back up and reused later in the level, saving a backpack slot. With a full bag you can't pick it up, so the order you use things up matters.
@@ -103,9 +107,9 @@ Overlap is intentional: a cracked wall can take the Pickaxe (reusable, but uses 
 ## Levels (each one screen)
 | # | Level | Best bag | Teaches |
 |---|---|---|---|
-| 1 | **The Slime** | Satchel (only bag) | Auto-use, and starting the dig before he reaches you |
+| 1 | **The Slime** | Satchel (only bag) | Auto-use, and digging gear out before he needs it |
 | 2 | **Locked In** | Satchel (only bag) | Queue order: Sword, then Key |
-| 3 | **The Long Hall** | Hauler (unlocked here) | Five or six obstacles spaced far apart; the Satchel can't fit them all. Get ahead and dig early. |
+| 3 | **The Long Hall** | Hauler (unlocked here) | Five or six obstacles spaced far apart; the Satchel can't fit them all. Dig after every hand-off and catch up. |
 | 4 | **Cave-in** | Pouch (unlocked here) | Rocks and slimes packed tight; only a fast dig makes the gaps. Pickaxe over Bomb, pick the dropped Sword back up. |
 | 5 | **Lights Out** | Satchel or Pouch | Dark room with an enemy inside: Torch, then Sword right after |
 | 6 | **The Gauntlet** | Player's choice | A long, spread-out first half and a tight cluster at the end. No bag is perfect; plan around its weakness. Red herrings in the pool. |
@@ -151,7 +155,7 @@ Bag stats live in code, not in maps, so they can be tuned in one place.
 **Day 1: core**
 - Tiled `.tmj` loader (tile layers, path polyline, objects, map properties)
 - Knight walks his path, auto-uses gear, dies or wins
-- Helper WASD movement, action-button dig and hand-off from the queue, dropped gear pickup
+- Helper WASD movement, action-button dig (anywhere) and hand-off (next to the Knight), dropped gear pickup
 - Three backpacks (slots + extract time), dig progress ring, unlock on level start
 - Helper and Knight death → back to Pack
 - Bag + pack + queue screen (simple list UI)
@@ -171,7 +175,7 @@ Bag stats live in code, not in maps, so they can be tuned in one place.
 - **Artist/designer:** 16×16 or 32×32 top-down pixel sprites and tilesets, levels in Tiled (puzzles are the content), dialogue
 
 ## Risks
-- **Unclear rules:** show the Knight's held gear above his head and the next queue entry in the HUD, and highlight the Knight when you're in hand-off range.
+- **Unclear rules:** show the Knight's held gear above his head and the next queue entry in the HUD, show the gear the Helper is holding, and highlight the Knight when you can hand it over.
 - **Hand-offs feel fiddly:** use a generous hand-off range.
 - **Bag choice feels arbitrary:** on the Pack screen, show each bag's slots and extract time, and during planning show how far the Knight walks during one dig with the selected bag (a short bar along his path).
 - **One bag dominates:** if playtesters always pick the same bag, tune slots and extract times before adding more levels.
