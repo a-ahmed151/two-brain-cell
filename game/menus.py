@@ -500,7 +500,7 @@ class RewardScene(MenuScene):
         elif not self.cards:
             title = "Get ready"
         else:
-            title = "Pick two" if len(self.taken) + self.picks > 1 else "Pick a reward"
+            title = "Pick a reward"
         ui.draw_text(canvas, title, (160, 14), "gold", scale=2, anchor="center")
         quit_rect = canvas.blit(ui.sprite(f"icon_exit_{self.state(('quit', 0), self.quitting)}"), (6, 6))
         self.hotspots.add(quit_rect, ("quit", 0))

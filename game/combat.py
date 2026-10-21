@@ -122,7 +122,6 @@ class CombatScene(Scene):
         self.enemies = [Enemy(kind, spawns[i % len(spawns)]) for i, kind in enumerate(run.enemies)]
         self.started = False  # everything waits for SPACE
         self.chest_opened = False  # the Helper opens it with a Key
-        self.extra_pick = False  # the chest's loot didn't fit in the bag: one more reward instead
         self.cleared = False
         self.gloat = 0.0  # boss room, after the fight
         # None while playing; otherwise "won" or "lost", shown as a banner: (title, lines).
@@ -166,16 +165,11 @@ class CombatScene(Scene):
                 self.open_chest()
 
     def open_chest(self):
-        """A random item into the bag, or with the bag full, an extra reward pick later."""
+        """A random item, to the end of the bag. It always fits: the Key's slot is free."""
         self.chest_opened = True
-        above = self.level.chest + (0, -12)
-        if self.run.backpack.full:
-            self.extra_pick = True
-            self.knight.popup("Bag full: extra reward!", GOLD, above)
-        else:
-            loot = self.run.roll_chest()
-            self.run.backpack.add(loot)
-            self.knight.popup(f"{GEAR[loot].name}!", GOLD, above)
+        loot = self.run.roll_chest()
+        self.run.backpack.put_back(loot)
+        self.knight.popup(f"{GEAR[loot].name}!", GOLD, self.level.chest + (0, -12))
 
     def pause_event(self, event):
         result = self.overlay_hotspots.handle(event)
@@ -210,8 +204,7 @@ class CombatScene(Scene):
         run = self.run
         shrine = run.shrine_next()
         run.room += 1
-        picks = 2 if self.extra_pick else 1
-        self.game.change_scene(RewardScene(self.game, picks=picks, shrine=shrine))
+        self.game.change_scene(RewardScene(self.game, shrine=shrine))
 
     def end(self, outcome, title, *lines):
         self.outcome = outcome
