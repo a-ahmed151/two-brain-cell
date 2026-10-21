@@ -34,7 +34,7 @@ FIST_DAMAGE = 1  # empty tool hand
 # which the Helper uses on the chest (Helper.action).
 GEAR = {
     "sword": GearType("Sword", TOOL, (200, 205, 215), "Good hits. Weak vs armor.", damage=3,
-                      bonus={"armored": 0.34}),
+                      bonus={"armored": 0.67}),
     "pickaxe": GearType("Pickaxe", TOOL, (150, 110, 70), "Cracks armor. Clumsy.", damage=1,
                         bonus={"armored": 5}),
     "torch": GearType("Torch", TOOL, (240, 160, 40), "Burns skulls and vampires.", damage=1,

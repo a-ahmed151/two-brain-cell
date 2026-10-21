@@ -27,7 +27,7 @@ class EnemyType:
     cooldown: float  # seconds between hits
     tags: tuple = ()  # matched against GearType.bonus
     hunts: str = "knight"  # or "helper"
-    lifesteal: bool = False  # heals by half the damage it deals
+    lifesteal: bool = False  # heals by a third of the damage it deals (at least 1)
     scale: int = 1
     tint: tuple | None = None
     summons: str | None = None  # boss: calls one of these every SUMMON_TIME
@@ -162,7 +162,7 @@ class Enemy:
             self.cooldown = self.type.cooldown
             dealt = prey.hurt(self.type.damage)
             if self.type.lifesteal and dealt:
-                self.hp = min(self.max_hp, self.hp + (dealt + 1) // 2)
+                self.hp = min(self.max_hp, self.hp + max(1, dealt // 3))
         if self.type.summons:
             self.summon_left -= dt
             if self.summon_left <= 0:
