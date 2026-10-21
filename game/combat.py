@@ -1,6 +1,7 @@
 """A room of the run: the Knight fights whatever's in it while the Helper digs gear
 out of the bag and hands it over. Clear the room to move on."""
 
+from collections import defaultdict
 from functools import cache
 
 import pygame
@@ -91,6 +92,7 @@ class CombatScene(Scene):
         self.helper = Helper(self.level.helper_start, run.backpack)
         spawns = self.level.spawns
         self.enemies = [Enemy(kind, spawns[i % len(spawns)]) for i, kind in enumerate(run.enemies)]
+        self.started = False  # everything waits for SPACE
         self.cleared = False
         self.gloat = 0.0  # boss room, after the fight
         # None while playing; otherwise "won" or "lost", shown as a banner: (title, lines).
@@ -114,9 +116,11 @@ class CombatScene(Scene):
             self.game.change_scene(IntroScene(self.game))
         elif self.knight.dead:
             return
-        elif event.key == pygame.K_SPACE and not self.knight.fighting and not self.cleared:
-            self.knight.fighting = True
-            self.knight.popup("TO GLORY!", GOLD)
+        elif not self.started:
+            if event.key == pygame.K_SPACE:
+                self.started = True
+                self.knight.fighting = True
+                self.knight.popup("TO GLORY!", GOLD)
         elif event.key == pygame.K_e:
             self.helper.action(self.knight)
 
@@ -158,6 +162,13 @@ class CombatScene(Scene):
         chest = self.level.chest
         if self.outcome:
             knight.update(dt, self.level)  # keeps his victory/death animation going
+            return
+        if not self.started:
+            # Frozen until SPACE; only the idle animations play.
+            helper.update(dt, defaultdict(bool), self.level)
+            knight.update(dt, self.level)
+            for enemy in self.enemies:
+                enemy.time += dt
             return
         helper.update(dt, pygame.key.get_pressed(), self.level)
         knight.update(dt, self.level, self.enemies, chest)
@@ -238,10 +249,12 @@ class CombatScene(Scene):
         screen.blit(pygame.transform.scale(self.hud, (screen.get_width() - hud_x, screen.get_height())), (hud_x, 0))
 
         tip = self.current_tip()
-        if self.outcome or tip:
+        if self.outcome or tip or not self.started:
             self.overlay.fill((0, 0, 0, 0))
             if self.outcome:
                 self.draw_banner(self.overlay)
+            elif not self.started:
+                self.draw_start(self.overlay)
             else:
                 self.draw_tip(self.overlay, tip)
             screen.blit(pygame.transform.scale_by(self.overlay, ui.UI_SCALE), (0, 0))
@@ -249,13 +262,24 @@ class CombatScene(Scene):
     def current_tip(self):
         if self.cleared and not self.knight.dead:
             return ["He'll take the credit again...", "There's Poison on top of the bag."]
-        if self.knight.fighting:
-            return None
+        return None
+
+    def draw_start(self, overlay):
+        """Before the fight: what's in the room, over a dimmed view, until SPACE."""
+        overlay.fill((0, 0, 0, 120))
         kinds = self.run.enemies
-        lines = [f"Room {self.run.room + 1}: {enemy_summary(kinds)}"]
-        lines += [ADVICE[k] for k in dict.fromkeys(kinds) if k in ADVICE]
-        lines.append("Gear him up, then SPACE to fight.")
-        return lines
+        title = "Boss" if self.run.boss_room else f"Room {self.run.room + 1}"
+        lines = [enemy_summary(kinds)] + [ADVICE[k] for k in dict.fromkeys(kinds) if k in ADVICE]
+        width = max(len(line) for line in lines) * ui.GLYPH_ADVANCE + 20
+        rect = pygame.Rect(0, 0, max(width, 140), 58 + 10 * len(lines))
+        rect.center = overlay.get_rect().center
+        ui.nine_slice(overlay, "panel9", rect)
+        ui.draw_text(overlay, title, (rect.centerx, rect.y + 10), "gold", scale=2, anchor="midtop")
+        for i, line in enumerate(lines):
+            ui.draw_text(overlay, line, (rect.centerx, rect.y + 32 + i * 10), anchor="midtop")
+        pulse = 255 if int(self.time * 2) % 2 == 0 else 140
+        ui.draw_text(overlay, "Press SPACE to start", (rect.centerx, rect.bottom - 16), "gold", anchor="midtop",
+                     alpha=pulse)
 
     def draw_hud(self, hud):
         knight, helper = self.knight, self.helper
@@ -286,17 +310,17 @@ class CombatScene(Scene):
 
         bag = backpack.bag
         ui.draw_text(hud, bag.name, (w // 2, 106), "gold", anchor="midtop")
-        ui.draw_text(hud, f"{len(backpack.queue)}/{bag.slots}  dig {bag.extract_time}", (w // 2, 115), anchor="midtop")
+        ui.draw_text(hud, f"{len(backpack.queue)}/{bag.slots} dig {bag.extract_time}", (w // 2, 115), anchor="midtop")
         for slot in range(max(bag.slots, len(backpack.queue))):
             col, row = slot % 4, slot // 4
             gear = backpack.queue[slot] if slot < len(backpack.queue) else None
             draw_slot(hud, gear, (w // 2 - 24 + col * 16, 130 + row * 15), marked=slot == 0 and gear is not None)
 
         hints = ["E dig/give", "ESC quit"]
-        if not knight.fighting and not self.cleared and not self.outcome:
-            hints = ["SPACE fight!"] + hints
+        if not self.started and not self.outcome:
+            hints = ["SPACE start"] + hints
         for i, hint in enumerate(hints):
-            ready = hint == "SPACE fight!"
+            ready = hint == "SPACE start"
             ui.draw_text(hud, hint, (w // 2, 155 + i * 8), "gold" if ready else "cream", anchor="midtop",
                          alpha=255 if ready else DIM)
 
