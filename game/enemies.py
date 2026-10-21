@@ -13,6 +13,11 @@ MONSTERS = "assets/Character_animation/monsters_idle/{folder}/v2/{prefix}_v2_{i}
 FPS = 6
 HIT_FLASH = 0.12  # seconds an enemy flashes white after a hit
 ATTACK_RANGE = 13  # centre to centre, in pixels
+# Any enemy turns on the Helper who comes this close (centre to centre)...
+AGGRO_RANGE = 24
+# ...and keeps after him until he gets this far away. He's faster than all of them: running is the only way out.
+GIVE_UP_RANGE = 56
+ALERT_TIME = 0.7  # how long the "!" (spotted) or "?" (lost him) shows over its head
 SIZE = 8  # collision box
 
 
@@ -123,6 +128,9 @@ class Enemy:
         self.facing_left = False
         self.summon_left = SUMMON_TIME
         self.burned = False  # hit by fire: no more lifesteal
+        self.after_helper = False  # a Knight-hunter that got distracted by the Helper
+        self.alert = ""  # "!" or "?", shown over its head
+        self.alert_left = 0.0
 
     @property
     def dead(self):
@@ -143,7 +151,9 @@ class Enemy:
         self.time += dt
         self.flash = max(0.0, self.flash - dt)
         self.cooldown = max(0.0, self.cooldown - dt)
-        prey = helper if self.type.hunts == "helper" and helper.alive else knight
+        self.alert_left = max(0.0, self.alert_left - dt)
+        self.notice(helper, knight)
+        prey = helper if (self.type.hunts == "helper" or self.after_helper) and helper.alive else knight
         target = pygame.Vector2(prey.rect.center) if prey is helper else knight.pos
         to_prey = target - self.pos
         distance = to_prey.length()
@@ -173,6 +183,21 @@ class Enemy:
                 return self.type.summons
         return None
 
+    def notice(self, helper, knight):
+        """Knight-hunters turn on a Helper who wanders too close, and lose him once he runs."""
+        if self.type.hunts == "helper":
+            return
+        if not helper.alive or knight.dead:
+            self.after_helper = False
+            return
+        distance = self.pos.distance_to(helper.rect.center)
+        if not self.after_helper and distance <= AGGRO_RANGE + self.reach - ATTACK_RANGE:
+            self.after_helper = True
+            self.alert, self.alert_left = "!", ALERT_TIME
+        elif self.after_helper and distance > GIVE_UP_RANGE:
+            self.after_helper = False
+            self.alert, self.alert_left = "?", ALERT_TIME
+
     @property
     def feet(self):
         return self.pos.y + 7 * self.type.scale
@@ -189,6 +214,9 @@ class Enemy:
             bar.midbottom = (rect.centerx, rect.top - 1)
             pygame.draw.rect(surface, (40, 20, 30), bar)
             pygame.draw.rect(surface, (210, 60, 70), (bar.x, bar.y, round(bar.w * self.hp / self.max_hp), 2))
+        if self.alert_left:
+            mark = ui.render_text(self.alert, "gold")
+            surface.blit(mark, mark.get_rect(midbottom=(rect.centerx, rect.top - 3)))
         if self.burned and self.type.lifesteal:
             # A little flame by its health bar: it can't heal any more.
             draw_icon(surface, ui.IconFont(), "torch", (rect.right, rect.top + 1), size=7)

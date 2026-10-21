@@ -280,7 +280,7 @@ class Knight:
 class Helper:
     """Controlled with WASD/arrows. Drawn from the sheet matching the bag's size."""
 
-    def __init__(self, start, backpack):
+    def __init__(self, start, backpack, hp=HELPER_HP):
         self.pos = pygame.Vector2(start)  # exact position; the rect is it rounded to pixels
         self.rect = pygame.Rect(0, 0, HELPER_SIZE, HELPER_SIZE)
         self.rect.center = round(self.pos.x), round(self.pos.y)
@@ -294,7 +294,7 @@ class Helper:
         self.give_side = "right"
         self.hurt_time = 0.0
         self.handed = []  # every piece of gear given to the Knight this run, in order
-        self.hp = HELPER_HP
+        self.hp = hp  # hearts; they never come back, so this carries over between rooms
         self.invulnerable = 0.0
         self.animation = None
         self.anim_time = 0.0

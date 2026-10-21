@@ -117,7 +117,7 @@ class CombatScene(Scene):
         self.time = 0.0
 
         self.knight = Knight(self.level.knight_start, run.knight_hp, run.knight_max_hp, run.knight_gear)
-        self.helper = Helper(self.level.helper_start, run.backpack)
+        self.helper = Helper(self.level.helper_start, run.backpack, run.helper_hp)
         spawns = self.level.spawns
         self.enemies = [Enemy(kind, spawns[i % len(spawns)]) for i, kind in enumerate(run.enemies)]
         self.started = False  # everything waits for SPACE
@@ -223,6 +223,7 @@ class CombatScene(Scene):
             run.backpack.put_back(knight.item)
             knight.item = None
         run.knight_hp = min(knight.max_hp, knight.hp + ROOM_REST)  # he catches his breath
+        run.helper_hp = helper.hp  # the Helper doesn't
         run.hands = {TOOL: knight.tool, ITEM: knight.item}
         self.outcome = "won"  # nothing more happens in this room
         self.leave()
@@ -377,6 +378,11 @@ class CombatScene(Scene):
         kinds = self.run.enemies
         title = "Boss" if self.run.boss_room else f"Room {self.run.room + 1}"
         lines = [enemy_summary(kinds)] + [ADVICE[k] for k in dict.fromkeys(kinds) if k in ADVICE]
+        if self.helper.hp < HELPER_HP:
+            hearts = f"{self.helper.hp} heart{'s' if self.helper.hp != 1 else ''}"
+            lines.append(f"{hearts} left, no healing!")
+        else:
+            lines.append("Get close, they chase you. Run!")
         width = max(len(line) for line in lines) * ui.GLYPH_ADVANCE + 20
         rect = pygame.Rect(0, 0, max(width, 140), 80 + 10 * len(lines))
         rect.center = overlay.get_rect().center

@@ -31,7 +31,8 @@ You don't fight. You make sure he's holding the right thing at the right time.
 - **WASD** to move, **E** to act.
 - **E, empty-handed:** dig out the **next entry in the bag's queue**. Digging takes the bag's extract time; you can't move while digging, and moving cancels it.
 - **E, holding gear, next to the Knight:** hand it over. If that hand was full, the old gear goes to the **end of the queue**.
-- **4 hearts.** Skulls hunt the Helper; every hit costs a heart (then a moment of safety) and knocks a dig back into the bag. If the Helper dies, the run is over.
+- **4 hearts for the whole run.** They never come back: nothing heals the Helper, not between rooms, not at a shrine. Every hit costs a heart (then a moment of safety) and knocks a dig back into the bag. If the Helper dies, the run is over.
+- **Don't get too close.** Skulls always hunt the Helper. Every other enemy goes for the Knight, but turns on the Helper who comes within 24 px ("!" over its head), and keeps chasing until the Helper is 56 px away ("?", back to the Knight). The Helper can't fight back; he's faster than every enemy, so **running away** is the only way to shake them. Hand gear over from behind the Knight, not from the middle of the fight.
 
 ## Backpacks
 | Bag | Slots | Extract time | Starting kit |
