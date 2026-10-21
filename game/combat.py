@@ -6,7 +6,7 @@ from functools import cache
 
 import pygame
 
-from game import story, ui
+from game import audio, story, ui
 from game.enemies import ENEMIES, Enemy, draw_lineup
 from game.entities import HELPER_HP, Helper, Knight, Popup
 from game.gear import GEAR, ITEM, TOOL, draw_icon
@@ -34,6 +34,7 @@ ARROW_FRAMES = [f"assets/interface/arrow_{i}.png" for i in range(1, 5)]  # point
 ARROW_FPS = 8
 BETRAYAL_DELAY = 2.5  # seconds of the Knight lying there before the ending
 DEATH_DELAY = 1.0  # seconds before the "he's dead" banner, so you see what got him
+STEP_TIME = 0.4  # seconds between monster footsteps, one for the whole pack so it doesn't clatter
 ICON_FONT = ui.IconFont()
 
 # Shown before the fight, for each kind of enemy in the room.
@@ -139,6 +140,7 @@ class CombatScene(Scene):
         self.death_time = 0.0
         self.paused = False
         self.pause_choice = 0
+        self.step_left = 0.0
         self.overlay_hotspots = ui.Hotspots()  # the pause menu, on the overlay
         self.hud_hotspots = ui.Hotspots(offset=(VIEW[0] * WORLD_SCALE, 0))
 
@@ -150,7 +152,7 @@ class CombatScene(Scene):
             return
         result = self.hud_hotspots.handle(event)
         if result and result[0] == "click" and result[1] == "pause" and not self.outcome:
-            self.paused = True
+            self.pause()
             return
         confirm = (event.type == pygame.KEYDOWN and event.key in (pygame.K_RETURN, pygame.K_SPACE)) or \
             (event.type == pygame.MOUSEBUTTONUP and event.button == 1)
@@ -161,7 +163,7 @@ class CombatScene(Scene):
         if event.type != pygame.KEYDOWN:
             return
         if event.key in (pygame.K_ESCAPE, pygame.K_p):
-            self.paused, self.pause_choice = True, 0
+            self.pause()
         elif self.knight.dead:
             return
         elif not self.started:
@@ -189,15 +191,23 @@ class CombatScene(Scene):
                 self.choose_pause()
         elif event.type == pygame.KEYDOWN:
             if event.key in (pygame.K_ESCAPE, pygame.K_p):
-                self.paused = False
+                self.resume()
             elif event.key in (pygame.K_w, pygame.K_UP, pygame.K_s, pygame.K_DOWN):
                 self.pause_choice = 1 - self.pause_choice
             elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
                 self.choose_pause()
 
+    def pause(self):
+        self.paused, self.pause_choice = True, 0
+        audio.play("pauseon")
+
+    def resume(self):
+        self.paused = False
+        audio.play("pauseoff")
+
     def choose_pause(self):
         if PAUSE_OPTIONS[self.pause_choice] == "Resume":
-            self.paused = False
+            self.resume()
         else:
             quit_run(self.game)
 
@@ -266,8 +276,10 @@ class CombatScene(Scene):
             summon = enemy.update(dt, knight, helper, self.level, self.enemies)
             if summon:
                 self.enemies.append(Enemy(summon, enemy.pos + (0, 10)))
+        self.footsteps(dt)
         for enemy in self.enemies:
             if enemy.dead:  # whoever did the work, Player 1 gets the points
+                audio.play("Die_skeleton")
                 self.run.p1_score += enemy.type.points
                 knight.popups.append(Popup(enemy.pos + (0, -6), f"+{enemy.type.points}", GOLD))
         self.enemies = [e for e in self.enemies if not e.dead]
@@ -322,6 +334,12 @@ class CombatScene(Scene):
             from game.menus import RenewedScene
             self.game.current_run = None
             self.game.change_scene(RenewedScene(self.game, self.run.p1_score, self.run.backpack.bag.sprite))
+
+    def footsteps(self, dt):
+        self.step_left = max(0.0, self.step_left - dt)
+        if self.step_left == 0 and any(e.walking and not e.dead for e in self.enemies):
+            audio.step()
+            self.step_left = STEP_TIME
 
     def clear_line(self):
         """What he says once the room is clear: he takes the credit."""

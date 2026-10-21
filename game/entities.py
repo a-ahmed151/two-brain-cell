@@ -5,6 +5,7 @@ from functools import cache
 
 import pygame
 
+from game.audio import play
 from game.enemies import move_body
 from game.ui import Speech
 from game.gear import FIST_DAMAGE, GEAR, TOOL, draw_icon
@@ -156,6 +157,7 @@ class Knight:
         dealt = min(amount, cap) if cap else amount
         self.hp -= dealt
         self.flash = HURT_FLASH
+        play("arrow_damage")
         self.popup(f"-{dealt}", (240, 90, 90))
         if self.hp <= 0:
             self.hp = 0
@@ -226,6 +228,7 @@ class Knight:
         if self.pos.distance_to(target.pos) <= reach and self.swing == 0:
             self.swing = ATTACK_TIME
             self.lunge = LUNGE_TIME
+            play("sword")
             to_target = target.pos - self.pos
             self.lunge_dir = to_target.normalize() if to_target.length_squared() else pygame.Vector2()
             if to_target.length_squared():
@@ -327,6 +330,7 @@ class Helper:
             return 0
         self.hp -= 1
         self.invulnerable = HELPER_INVULNERABLE
+        play("arrow_damage")
         self.digging = False  # getting hit knocks the gear back into the bag
         self.hurt_time = self.animation_length("hurt")
         return 1
@@ -348,6 +352,7 @@ class Helper:
         if self.held and GEAR[self.held].helper_only:
             if chest is not None and self.near(chest):
                 self.held = None
+                play("give_item")
                 self.give_side = "left" if chest.x < self.rect.centerx else "right"
                 self.give_time = self.animation_length(f"give_{self.give_side}")
                 return "chest"
@@ -356,6 +361,7 @@ class Helper:
         elif self.held:
             if self.in_range(knight) and not knight.dead:
                 gear, self.held = self.held, None
+                play("give_item")
                 self.give_side = "left" if knight.pos.x < self.rect.centerx else "right"
                 self.give_time = self.animation_length(f"give_{self.give_side}")
                 self.handed.append(gear)

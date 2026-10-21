@@ -12,6 +12,7 @@ from functools import cache
 import pygame
 
 from game import ui
+from game.audio import play
 from game.combat import draw_level, draw_open_door
 from game.entities import helper_animations, helper_frame, knight_frame
 from game.scene import Scene
@@ -30,7 +31,6 @@ TEXT_CHARS = 31  # characters per line inside the panel
 SKIP_RECT = pygame.Rect(284, 4, 32, 14)
 ARROW_FRAMES = [f"assets/interface/arrow_{i}.png" for i in range(1, 5)]  # point down
 ARROW_FPS = 8
-SOUNDS = "assets/sounds/{}.wav"
 
 KNIGHT, HELPER = "knight", "helper"
 NAMES = {KNIGHT: "Sir Knight", HELPER: "Helper"}
@@ -54,23 +54,6 @@ SCRIPT = [
 @cache
 def arrow_frames():
     return [pygame.image.load(p).convert_alpha() for p in ARROW_FRAMES]
-
-
-@cache
-def sound(name):
-    """A sound effect, or None if there's no audio (some browsers, headless runs)."""
-    try:
-        effect = pygame.mixer.Sound(SOUNDS.format(name))
-        effect.set_volume(0.5)
-        return effect
-    except (pygame.error, FileNotFoundError):
-        return None
-
-
-def play(name):
-    effect = sound(name)
-    if effect:
-        effect.play()
 
 
 def ease_out(t):

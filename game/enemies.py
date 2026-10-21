@@ -7,6 +7,7 @@ from functools import cache
 import pygame
 
 from game import ui
+from game.audio import play
 from game.gear import draw_icon
 
 MONSTERS = "assets/Character_animation/monsters_idle/{folder}/v2/{prefix}_v2_{i}.png"
@@ -142,6 +143,7 @@ class Enemy:
         self.after_helper = False  # a Knight-hunter that got distracted by the Helper
         self.alert = ""  # "!" or "?", shown over its head
         self.alert_left = 0.0
+        self.walking = False  # moved this frame; the scene plays the footsteps
 
     @property
     def dead(self):
@@ -158,6 +160,7 @@ class Enemy:
         if self.type.only and gear != self.type.only:
             return 0
         self.hp -= amount
+        play("hit_skeleton")
         if fire:
             self.burned = True
         return amount
@@ -175,7 +178,8 @@ class Enemy:
         distance = to_prey.length()
         if distance > 0.5:
             self.facing_left = to_prey.x < 0
-        if distance > self.reach * 0.8:
+        self.walking = distance > self.reach * 0.8
+        if self.walking:
             heading = level.route(self.pos, target, SIZE * self.type.scale) - self.pos
             if heading.length_squared() == 0:
                 heading = to_prey
