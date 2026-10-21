@@ -12,6 +12,8 @@ ICON_SIZE = 18
 ICON_SHEET = "assets/gear_icons.png"  # one row of 16x16 icons, built by tools/make_knight_sheet.py
 ICON_SHEET_ORDER = ["sword", "pickaxe", "torch", "shield", "key", "bomb", "potion"]
 ICON_SHEET_SIZE = 16
+# Icons with art of their own, not on the sheet (16x16, the sheet's style).
+ICON_FILES = {"poison": "assets/poison_icon.png"}  # the Potion's bottle, gone green, with a skull
 
 
 @dataclass(frozen=True)
@@ -54,6 +56,9 @@ GEAR = {
 def _icon(gear, size):
     """The gear's icon scaled to `size`, or None if the sheet has no art for it. Loaded on
     first use (needs the display to exist)."""
+    if gear in ICON_FILES:
+        icon = pygame.image.load(ICON_FILES[gear]).convert_alpha()
+        return pygame.transform.scale(icon, (size, size))
     if gear not in ICON_SHEET_ORDER:
         return None
     sheet = _icon_sheet()
@@ -68,7 +73,7 @@ def _icon_sheet():
 
 
 def draw_icon(surface, font, gear, center, size=ICON_SIZE):
-    """The gear's icon from the icon sheet. Gear without art (Plank, Poison) falls back to
+    """The gear's icon from the icon sheet. Gear without art falls back to
     a colored square with its first letter; tools are square, items rounded."""
     icon = _icon(gear, size)
     if icon:
