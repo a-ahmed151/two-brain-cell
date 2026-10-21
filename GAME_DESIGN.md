@@ -49,12 +49,12 @@ The trade-off: a big bag carries the answer to everything but is slow to swap mi
 | Torch | 1 | ×4 vs things that burn (skulls, vampires) |
 | Shield | 1 | He takes half damage |
 
-**Items (used up; he uses them by himself)**
+**Items (used up; he uses them by himself, except the Key)**
 | Gear | When he uses it |
 |---|---|
 | Potion | Drinks it below 40% HP: +15 HP |
 | Bomb | Throws it when 2+ enemies (or the boss) are close: 8 damage to each |
-| Key | Opens the room's chest right away: two rewards after this room |
+| Key | **The Helper's**, not his: dig it out and press E next to the chest to open it (two rewards after this room). E anywhere else puts it back at the end of the bag. It can't go in his hands |
 | Poison | Final room only. He drinks it the moment he's handed it, and dies |
 
 ## Enemies

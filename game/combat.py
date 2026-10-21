@@ -9,7 +9,7 @@ import pygame
 from game import ui
 from game.enemies import ENEMIES, Enemy, draw_lineup
 from game.entities import HELPER_HP, Helper, Knight, Popup
-from game.gear import ITEM, TOOL, draw_icon
+from game.gear import GEAR, ITEM, TOOL, draw_icon
 from game.run import ROOM_REST, ROOMS
 from game.scene import Scene
 
@@ -93,6 +93,7 @@ class CombatScene(Scene):
         spawns = self.level.spawns
         self.enemies = [Enemy(kind, spawns[i % len(spawns)]) for i, kind in enumerate(run.enemies)]
         self.started = False  # everything waits for SPACE
+        self.chest_opened = False  # the Helper opens it with a Key
         self.cleared = False
         self.gloat = 0.0  # boss room, after the fight
         # None while playing; otherwise "won" or "lost", shown as a banner: (title, lines).
@@ -122,7 +123,12 @@ class CombatScene(Scene):
                 self.knight.fighting = True
                 self.knight.popup("TO GLORY!", GOLD)
         elif event.key == pygame.K_e:
-            self.helper.action(self.knight)
+            if self.helper.action(self.knight, self.closed_chest()) == "chest":
+                self.chest_opened = True
+                self.knight.popup("Loot!", GOLD, self.level.chest + (0, -12))
+
+    def closed_chest(self):
+        return None if self.chest_opened else self.level.chest
 
     def leave(self):
         from game.menus import RewardScene, RunStartScene
@@ -133,7 +139,7 @@ class CombatScene(Scene):
         run = self.run
         shrine = run.shrine_next()
         run.room += 1
-        picks = 2 if self.knight.chest_opened else 1
+        picks = 2 if self.chest_opened else 1
         self.game.change_scene(RewardScene(self.game, picks=picks, shrine=shrine))
 
     def end(self, outcome, title, *lines):
@@ -155,7 +161,7 @@ class CombatScene(Scene):
         run.hands = {TOOL: knight.tool, ITEM: knight.item}
         title = "Room clear!"
         lines = [f"He rests: {run.knight_hp}/{knight.max_hp} HP"]
-        if knight.chest_opened:
+        if self.chest_opened:
             lines.append("Chest! Two rewards this time.")
         lines.append("ENTER: continue")
         self.end("won", title, *lines)
@@ -163,7 +169,6 @@ class CombatScene(Scene):
     def update(self, dt):
         knight, helper = self.knight, self.helper
         self.time += dt
-        chest = self.level.chest
         if self.outcome:
             knight.update(dt, self.level)  # keeps his victory/death animation going
             return
@@ -175,7 +180,7 @@ class CombatScene(Scene):
                 enemy.time += dt
             return
         helper.update(dt, pygame.key.get_pressed(), self.level)
-        knight.update(dt, self.level, self.enemies, chest)
+        knight.update(dt, self.level, self.enemies)
         for enemy in list(self.enemies):
             summon = enemy.update(dt, knight, helper, self.level, self.enemies)
             if summon:
@@ -226,13 +231,17 @@ class CombatScene(Scene):
         world = self.world
         world.blit(self.background, (0, 0))
         if self.level.chest is not None:
-            image = chest_image(knight.chest_opened)
+            image = chest_image(self.chest_opened)
             world.blit(image, image.get_rect(center=self.level.chest))
         if self.cleared:
             door = pygame.Rect(0, 0, 13, 13)
             door.center = self.level.exit_pos
             pygame.draw.rect(world, EXIT_COLOR, door, 2)
-        if helper.held and helper.in_range(knight) and not knight.dead:
+        if helper.held and GEAR[helper.held].helper_only:
+            chest = self.closed_chest()
+            if chest is not None and helper.near(chest):
+                pygame.draw.circle(world, HIGHLIGHT_COLOR, chest, 10, 1)
+        elif helper.held and helper.in_range(knight) and not knight.dead:
             pygame.draw.circle(world, HIGHLIGHT_COLOR, knight.pos, 10, 1)
 
         # Draw whoever's feet are lower on screen last, so they overlap correctly.
@@ -322,6 +331,9 @@ class CombatScene(Scene):
             draw_slot(hud, gear, (w // 2 - 24 + col * 16, 130 + row * 15), marked=slot == 0 and gear is not None)
 
         hints = ["E dig/give", "ESC quit"]
+        if helper.held and GEAR[helper.held].helper_only:
+            chest = self.closed_chest()
+            hints[0] = "E chest" if chest is not None and helper.near(chest) else "E to bag"
         if not self.started and not self.outcome:
             hints = ["SPACE start"] + hints
         for i, hint in enumerate(hints):

@@ -414,6 +414,9 @@ class RewardScene(MenuScene):
     def swap(self, a, b):
         first, second = self.gear_at(a), self.gear_at(b)
         for slot, gear in ((a, second), (b, first)):
+            if slot[0] == "hand" and gear and GEAR[gear].helper_only:
+                self.say(f"The {GEAR[gear].name} is for you, not him.")
+                return
             if slot[0] == "hand" and gear and GEAR[gear].hand != slot[1]:
                 self.say(f"Only {slot[1]}s go in his {slot[1]} hand.")
                 return

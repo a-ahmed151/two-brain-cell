@@ -24,12 +24,14 @@ class GearType:
     damage: int = 0
     bonus: dict = field(default_factory=dict)  # enemy tag -> damage multiplier
     guard: float = 1.0  # multiplier on damage he takes while holding it
+    helper_only: bool = False  # the Helper uses it; it can't go in the Knight's hands
 
 
 FIST_DAMAGE = 1  # empty tool hand
 
 # Gear is referred to everywhere by these ids. Items sit in his item hand until he
-# uses them by himself: see Knight.use_item in game/entities.py.
+# uses them by himself (see Knight.use_item in game/entities.py), except the Key,
+# which the Helper uses on the chest (Helper.action).
 GEAR = {
     "sword": GearType("Sword", TOOL, (200, 205, 215), "Good hits. Weak vs armor.", damage=3,
                       bonus={"armored": 0.34}),
@@ -38,7 +40,7 @@ GEAR = {
     "torch": GearType("Torch", TOOL, (240, 160, 40), "Burns skulls and vampires.", damage=1,
                       bonus={"burns": 4}),
     "shield": GearType("Shield", TOOL, (70, 110, 190), "Halves damage taken.", damage=1, guard=0.5),
-    "key": GearType("Key", ITEM, (230, 200, 60), "Opens the room's chest."),
+    "key": GearType("Key", ITEM, (230, 200, 60), "You open the room's chest.", helper_only=True),
     "bomb": GearType("Bomb", ITEM, (75, 75, 85), "Blasts a crowd near him."),
     "potion": GearType("Potion", ITEM, (210, 60, 90), "Drunk when he's hurt."),
     "poison": GearType("Poison", ITEM, (120, 200, 70), "Not a health potion."),  # the betrayal

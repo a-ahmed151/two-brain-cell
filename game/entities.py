@@ -118,7 +118,6 @@ class Knight:
         self.facing = pygame.Vector2(1, 0)
         self.moving = False
         self.popups = []  # read and drawn by the scene
-        self.chest_opened = False  # set when he opens the room's chest with a Key
         self.animation = None
         self.anim_time = 0.0
         for piece in gear:
@@ -173,7 +172,7 @@ class Knight:
             multiplier *= gear.bonus.get(tag, 1.0)
         return max(1, round(gear.damage * multiplier))
 
-    def use_item(self, enemies, chest):
+    def use_item(self, enemies):
         """The Knight uses his item when it makes sense, all by himself."""
         item = self.item
         if item == "potion" and self.hp <= self.max_hp * POTION_AT:
@@ -186,12 +185,8 @@ class Knight:
                 self.popup("BOOM!", (255, 200, 80))
                 for enemy in near:
                     enemy.hurt(BOMB_DAMAGE)
-        elif item == "key" and chest is not None and not self.chest_opened:
-            self.item = None
-            self.chest_opened = True
-            self.popup("Loot!", (232, 177, 58), chest + (0, -12))
 
-    def update(self, dt, level, enemies=(), chest=None):
+    def update(self, dt, level, enemies=()):
         """Fight the nearest enemy, or once the room's clear, walk out if told to."""
         self.anim_time += dt
         self.flash = max(0.0, self.flash - dt)
@@ -204,7 +199,7 @@ class Knight:
         self.moving = False
         if self.dead or self.reached_exit:
             return
-        self.use_item(enemies, chest)
+        self.use_item(enemies)
         if self.leaving is not None:
             if self._walk_to(self.leaving, dt, 2, level):
                 self.reached_exit = True
@@ -317,13 +312,26 @@ class Helper:
     def in_range(self, knight):
         return pygame.Vector2(self.rect.center).distance_to(knight.pos) <= HANDOFF_RANGE
 
-    def action(self, knight):
+    def near(self, point):
+        return pygame.Vector2(self.rect.center).distance_to(point) <= HANDOFF_RANGE
+
+    def action(self, knight, chest=None):
         """Action button. Empty-handed: start digging out the next gear (anywhere).
         Holding gear: hand it to the Knight if he's in range. Whatever he was
-        holding in that hand goes back to the end of the queue."""
+        holding in that hand goes back to the end of the queue. Holding the Key
+        next to the (closed) chest at `chest`: open it, and return "chest";
+        anywhere else, put it back at the end of the queue."""
         if not self.alive:
-            return
-        if self.held:
+            return None
+        if self.held and GEAR[self.held].helper_only:
+            if chest is not None and self.near(chest):
+                self.held = None
+                self.give_side = "left" if chest.x < self.rect.centerx else "right"
+                self.give_time = self.animation_length(f"give_{self.give_side}")
+                return "chest"
+            self.backpack.put_back(self.held)
+            self.held = None
+        elif self.held:
             if self.in_range(knight) and not knight.dead:
                 gear, self.held = self.held, None
                 self.give_side = "left" if knight.pos.x < self.rect.centerx else "right"
@@ -335,6 +343,7 @@ class Helper:
         elif not self.digging and self.backpack.next is not None:
             self.digging = True
             self.dig_left = self.backpack.bag.extract_time
+        return None
 
     def animation_length(self, name):
         frames, fps, _ = helper_animations(self.backpack.bag.sprite)[name]
