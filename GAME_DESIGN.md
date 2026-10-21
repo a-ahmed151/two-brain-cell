@@ -16,7 +16,7 @@ You don't fight. You make sure he's holding the right thing at the right time.
 
 - **The notice** shows after Play, before the bag select (SIGN to continue).
 - **Player 1's score** is arcade-style, in the top wall of every room and on the reward screen: each kill scores for him, whoever did the work (Skull 50, Skeleton 100, Vampire 200, Armored 250, the Count 2000), and every cleared room adds 500. **Player 2's score** is never kept: dashes, or "NOT TRACKED", "SEE CONTRACT", "ERROR" after rooms 3, 5 and 7.
-- **Speech bubbles:** the Knight talks over his head: "TO GLORY!" at every fight, a line taking the credit for every cleared room, his last words when he dies. The Count speaks to the Helper when the boss fight starts, and the priest speaks from the blessing cards.
+- **Speech bubbles:** the Knight talks over his head: "TO GLORY!" at every fight, a line taking the credit for every cleared room, his last words when he dies. The priest speaks from the blessing cards.
 - **The betrayal** pays off the score: when Player 1 drinks the Poison, the scoreboard flips (P1 GAME OVER, P2 gets his score).
 
 All the lines live in `game/story.py`. The font has letters, digits and `:%!?-/.',<>` only.
@@ -79,7 +79,7 @@ The trade-off: a big bag carries the answer to everything but is slow to swap mi
 | Armored | 15 | Shrugs off the Sword. Bring the Pickaxe |
 | Skull | 4 | Fast, **hunts the Helper**, burns |
 | Vampire | 12 | Heals by a third of the damage it deals (at least 1), until the Torch burns it |
-| The Count (boss) | 50 | Big vampire, calls a Skull every 7 s. Torch him. Tells the Helper "Even I pay my skulls." |
+| The Count (boss) | 50 | Big vampire, calls a Skull every 7 s. Torch him |
 
 Enemy mixes are in `WAVES` in `game/run.py` (two options per room, picked at random); stats in `ENEMIES` in `game/enemies.py`; gear in `GEAR` in `game/gear.py`. All tuning lives in those tables.
 

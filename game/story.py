@@ -31,9 +31,6 @@ ROOM_CLEAR = [
 BOSS_CLEAR = "Hah! My skill is unmatched."
 BOSS_LEAVING = "Good work, Player 1! That's me."
 
-# The Count talks to the Helper, not the Knight, when the boss fight starts.
-COUNT = "Player 2? You do the work, he takes the gold? Even I pay my skulls."
-
 # The priest, by the room the run is about to enter (shrines come after rooms 3 and 6).
 PRIEST = {
     3: "Bless you, brave Player 1. And... the luggage.",

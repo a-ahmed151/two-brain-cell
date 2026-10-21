@@ -169,8 +169,6 @@ class CombatScene(Scene):
                 self.started = True
                 self.knight.fighting = True
                 self.knight.say(story.CHARGE)
-                if self.run.boss_room:
-                    self.enemies[0].speech = ui.Speech(story.COUNT)
         elif event.key == pygame.K_e:
             if self.helper.action(self.knight, self.closed_chest()) == "chest":
                 self.open_chest()
@@ -385,9 +383,6 @@ class CombatScene(Scene):
         self.draw_score(world)
         if knight.speech and not knight.reached_exit and "knight" not in self.gone:
             ui.speech_bubble(world, knight.speech.text, knight.pos + (0, -14))
-        for enemy in self.enemies:
-            if enemy.speech:
-                ui.speech_bubble(world, enemy.speech.text, enemy.pos + (0, -12 * enemy.type.scale))
 
         view_on_screen = (VIEW[0] * WORLD_SCALE, VIEW[1] * WORLD_SCALE)
         pygame.transform.scale(world, view_on_screen, screen.subsurface((0, 0, *view_on_screen)))

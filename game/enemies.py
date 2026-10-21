@@ -8,7 +8,6 @@ import pygame
 
 from game import ui
 from game.gear import draw_icon
-from game.ui import Speech
 
 MONSTERS = "assets/Character_animation/monsters_idle/{folder}/v2/{prefix}_v2_{i}.png"
 FPS = 6
@@ -130,7 +129,6 @@ class Enemy:
         self.facing_left = False
         self.summon_left = SUMMON_TIME
         self.burned = False  # hit by fire: no more lifesteal
-        self.speech = None  # the Count has a word for the Helper
         self.after_helper = False  # a Knight-hunter that got distracted by the Helper
         self.alert = ""  # "!" or "?", shown over its head
         self.alert_left = 0.0
@@ -152,7 +150,6 @@ class Enemy:
     def update(self, dt, knight, helper, level, others):
         """Chase the prey and hit it when close. Returns a new enemy kind to summon, or None."""
         self.time += dt
-        self.speech = Speech.tick(self.speech, dt)
         self.flash = max(0.0, self.flash - dt)
         self.cooldown = max(0.0, self.cooldown - dt)
         self.alert_left = max(0.0, self.alert_left - dt)
