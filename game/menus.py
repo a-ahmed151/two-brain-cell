@@ -172,6 +172,7 @@ class IntroScene(MenuScene):
             self.hotspots.add(rect, name)
             if selected:
                 canvas.blit(ui.sprite("cursor_sword"), (self.BUTTON_X - 16, y + 6))
+        ui.draw_text(canvas, "< > music   M mute", (6, 171), alpha=DIM)
 
 
 class NoticeScene(MenuScene):

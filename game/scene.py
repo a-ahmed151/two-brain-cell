@@ -5,6 +5,8 @@ import asyncio
 
 import pygame
 
+from game.music import Music
+
 FPS = 60
 SCREEN_SIZE = (1280, 720)  # the UI kit's 320x180 canvas at 4x
 
@@ -32,6 +34,9 @@ class Game:
         self.clock = pygame.time.Clock()
         self.scene = None
         self.running = True
+        self.closing = None  # seconds left of the music fading out before the window closes
+        self.music = Music()
+        self.shade = pygame.Surface(SCREEN_SIZE)  # the picture fades to black with the music
 
         # Filled in by the loading scene.
         self.levels = []  # the arena rooms; each room of a run uses one of them
@@ -44,19 +49,31 @@ class Game:
         self.scene = scene
 
     def quit(self):
-        self.running = False
+        """Fade the music out, then close."""
+        if self.closing is None:
+            self.closing = self.music.fade_out()
 
     async def run(self, first_scene):
         self.scene = first_scene
+        self.music.start()
         while self.running:
             dt = self.clock.tick(FPS) / 1000
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.quit()
-                else:
+                elif self.closing is None and not self.music.handle_event(event):
                     self.scene.handle_event(event)
+            if self.closing is not None:
+                self.closing -= dt
+                if self.closing <= 0:
+                    self.running = False
             self.scene.update(dt)
+            self.music.update(dt)
             self.scene.draw(self.screen)
+            self.music.draw(self.screen)
+            if self.closing is not None and self.music.fade_time:
+                self.shade.set_alpha(round(255 * (1 - max(0.0, self.closing) / self.music.fade_time)))
+                self.screen.blit(self.shade, (0, 0))
             pygame.display.flip()
 
             await asyncio.sleep(0)  # required by pygbag for the web build

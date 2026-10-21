@@ -110,6 +110,9 @@ Every room, the Knight takes the credit (and the points). When the Count falls, 
 - Hand him the Poison before he gets there: he drinks it without a second thought ("A potion! Cheers, Player 2."), and the ending plays: his last words ("Tell my mother... I was right..."), the scoreboard flips (P1 GAME OVER, P2 takes his score), the Helper keeps the gold, the Knight gets the stale bread, "PLAYER 2 WINS."
 - If he reaches the exit, Player 1 gets all the glory, in an ending of his own: "Victory!", the Knight shown big with gold raining down ("Another flawless solo run!"), his score counting up to a flashing HIGH SCORE, P2 still at dashes, the Helper still digging in the bag. "The Knight keeps the gold and the glory. The Helper's contract is renewed. PLAYER 1 WINS. AGAIN." ENTER goes back to the job notice.
 
+## Music
+`assets/sounds/bg.mp3` loops in the background (`game/music.py`; the web build plays `bg.ogg`, the same track, since browsers don't play MP3). It fades in over 3 seconds at launch, and when you quit the music and the picture fade out together over 1.5 seconds. It starts at 40% so it sits under the sound effects. **< and >** (or - and +) turn it down and up from any screen, **M** mutes; a small panel shows the level, and it's remembered in `settings.json` (not in git).
+
 ## Personality and humor
 - He yells "TO GLORY!" when sent into a fight, and takes the credit for every cleared room in a speech bubble (lines in `game/story.py`).
 - On a boss kill: "Hah! My skill is unmatched."
