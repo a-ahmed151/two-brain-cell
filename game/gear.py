@@ -24,6 +24,7 @@ class GearType:
     damage: int = 0
     bonus: dict = field(default_factory=dict)  # enemy tag -> damage multiplier
     guard: float = 1.0  # multiplier on damage he takes while holding it
+    fire: bool = False  # its hits burn: a burned vampire can't heal any more
     helper_only: bool = False  # the Helper uses it; it can't go in the Knight's hands
 
 
@@ -37,8 +38,8 @@ GEAR = {
                       bonus={"armored": 0.67}),
     "pickaxe": GearType("Pickaxe", TOOL, (150, 110, 70), "Cracks armor. Clumsy.", damage=1,
                         bonus={"armored": 5}),
-    "torch": GearType("Torch", TOOL, (240, 160, 40), "Burns skulls and vampires.", damage=1,
-                      bonus={"burns": 4}),
+    "torch": GearType("Torch", TOOL, (240, 160, 40), "Burns undead. Stops healing.", damage=1,
+                      bonus={"burns": 4, "vampire": 2}, fire=True),
     "shield": GearType("Shield", TOOL, (70, 110, 190), "Halves damage taken.", damage=1, guard=0.5),
     "key": GearType("Key", ITEM, (230, 200, 60), "You open the room's chest.", helper_only=True),
     "bomb": GearType("Bomb", ITEM, (75, 75, 85), "Blasts enemies near him."),

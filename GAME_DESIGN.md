@@ -50,7 +50,7 @@ The trade-off: a big bag carries the answer to everything but is slow to swap mi
 |---|---|---|
 | Sword | 3 | ×0.67 vs armored (2 damage) |
 | Pickaxe | 1 | ×5 vs armored |
-| Torch | 1 | ×4 vs things that burn (skulls, vampires) |
+| Torch | 1 | ×4 vs things that burn (4 to skulls), and ×2 more vs vampires (8). Fire: a vampire it hits can't heal any more |
 | Shield | 1 | He takes half damage |
 
 **Items (used up; he uses them by himself, except the Key)**
@@ -67,7 +67,7 @@ The trade-off: a big bag carries the answer to everything but is slow to swap mi
 | Skeleton | 6 | Basic |
 | Armored | 15 | Shrugs off the Sword. Bring the Pickaxe |
 | Skull | 4 | Fast, **hunts the Helper**, burns |
-| Vampire | 12 | Heals by a third of the damage it deals (at least 1), burns |
+| Vampire | 12 | Heals by a third of the damage it deals (at least 1), until the Torch burns it |
 | The Count (boss) | 50 | Big vampire, calls a Skull every 7 s. Torch him |
 
 Enemy mixes are in `WAVES` in `game/run.py` (two options per room, picked at random); stats in `ENEMIES` in `game/enemies.py`; gear in `GEAR` in `game/gear.py`. All tuning lives in those tables.

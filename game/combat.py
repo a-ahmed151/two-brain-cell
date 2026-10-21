@@ -36,7 +36,7 @@ ICON_FONT = ui.IconFont()
 ADVICE = {
     "armored": "Armor: the Sword is weak. Pickaxe!",
     "skull": "Skulls hunt YOU. Stay near him.",
-    "vampire": "Vampires heal on bite. Torch!",
+    "vampire": "Vampires heal. Torch stops it!",
     "count": "The Count calls skulls. Torch!",
 }
 

@@ -43,9 +43,9 @@ ENEMIES = {
     "skull": EnemyType("Skull", "skull", "skull", hp=4, speed=34, damage=1, cooldown=1.3, tags=("burns",),
                        hunts="helper", counter="torch"),
     "vampire": EnemyType("Vampire", "vampire", "vampire", hp=12, speed=24, damage=3, cooldown=1.1,
-                         tags=("burns",), lifesteal=True, counter="torch"),
+                         tags=("burns", "vampire"), lifesteal=True, counter="torch"),
     "count": EnemyType("The Count", "vampire", "vampire", hp=50, speed=18, damage=4, cooldown=1.5,
-                       tags=("burns",), lifesteal=True, scale=2, tint=(255, 150, 150), summons="skull",
+                       tags=("burns", "vampire"), lifesteal=True, scale=2, tint=(255, 150, 150), summons="skull",
                        counter="torch"),
 }
 
@@ -122,6 +122,7 @@ class Enemy:
         self.time = 0.0
         self.facing_left = False
         self.summon_left = SUMMON_TIME
+        self.burned = False  # hit by fire: no more lifesteal
 
     @property
     def dead(self):
@@ -131,9 +132,11 @@ class Enemy:
     def reach(self):
         return ATTACK_RANGE * self.type.scale
 
-    def hurt(self, amount):
+    def hurt(self, amount, fire=False):
         self.hp -= amount
         self.flash = HIT_FLASH
+        if fire:
+            self.burned = True
 
     def update(self, dt, knight, helper, level, others):
         """Chase the prey and hit it when close. Returns a new enemy kind to summon, or None."""
@@ -161,7 +164,7 @@ class Enemy:
         if distance <= self.reach and self.cooldown == 0:
             self.cooldown = self.type.cooldown
             dealt = prey.hurt(self.type.damage)
-            if self.type.lifesteal and dealt:
+            if self.type.lifesteal and dealt and not self.burned:
                 self.hp = min(self.max_hp, self.hp + max(1, dealt // 3))
         if self.type.summons:
             self.summon_left -= dt
@@ -186,3 +189,6 @@ class Enemy:
             bar.midbottom = (rect.centerx, rect.top - 1)
             pygame.draw.rect(surface, (40, 20, 30), bar)
             pygame.draw.rect(surface, (210, 60, 70), (bar.x, bar.y, round(bar.w * self.hp / self.max_hp), 2))
+        if self.burned and self.type.lifesteal:
+            # A little flame by its health bar: it can't heal any more.
+            draw_icon(surface, ui.IconFont(), "torch", (rect.right, rect.top + 1), size=7)

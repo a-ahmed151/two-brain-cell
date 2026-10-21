@@ -222,8 +222,10 @@ class Knight:
             if to_target.length_squared():
                 self.facing = self.lunge_dir
             damage = self.damage_against(target)
-            target.hurt(damage)
-            self.popup(str(damage), (255, 255, 255), target.pos + (0, -12 * target.type.scale))
+            fire = bool(self.tool) and GEAR[self.tool].fire
+            target.hurt(damage, fire)
+            color = (255, 160, 60) if fire else (255, 255, 255)
+            self.popup(str(damage), color, target.pos + (0, -12 * target.type.scale))
 
     def _walk_to(self, point, dt, stop, level=None):
         """Step toward `point`; True once within `stop` pixels of it."""
