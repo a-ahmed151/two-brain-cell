@@ -38,6 +38,16 @@ ADVICE = {
 }
 
 
+PAUSE_OPTIONS = ("Resume", "Quit run")
+
+
+def quit_run(game):
+    """Give up on the run and go back to the main menu."""
+    from game.menus import IntroScene  # menus imports this module too
+    game.current_run = None
+    game.change_scene(IntroScene(game))
+
+
 def draw_level(surface, level, tiles):
     ts = level.tile_size
     surface.fill((0, 0, 0))
@@ -100,10 +110,21 @@ class CombatScene(Scene):
         self.outcome = None
         self.banner = ("", [])
         self.death_time = 0.0
+        self.paused = False
+        self.pause_choice = 0
+        self.overlay_hotspots = ui.Hotspots()  # the pause menu, on the overlay
+        self.hud_hotspots = ui.Hotspots(offset=(VIEW[0] * WORLD_SCALE, 0))
 
     # --- flow ---
 
     def handle_event(self, event):
+        if self.paused:
+            self.pause_event(event)
+            return
+        result = self.hud_hotspots.handle(event)
+        if result and result[0] == "click" and result[1] == "pause" and not self.outcome:
+            self.paused = True
+            return
         confirm = (event.type == pygame.KEYDOWN and event.key in (pygame.K_RETURN, pygame.K_SPACE)) or \
             (event.type == pygame.MOUSEBUTTONUP and event.button == 1)
         if self.outcome:
@@ -112,9 +133,8 @@ class CombatScene(Scene):
             return
         if event.type != pygame.KEYDOWN:
             return
-        if event.key == pygame.K_ESCAPE:
-            from game.menus import IntroScene  # menus imports this module too
-            self.game.change_scene(IntroScene(self.game))
+        if event.key in (pygame.K_ESCAPE, pygame.K_p):
+            self.paused, self.pause_choice = True, 0
         elif self.knight.dead:
             return
         elif not self.started:
@@ -126,6 +146,27 @@ class CombatScene(Scene):
             if self.helper.action(self.knight, self.closed_chest()) == "chest":
                 self.chest_opened = True
                 self.knight.popup("Loot!", GOLD, self.level.chest + (0, -12))
+
+    def pause_event(self, event):
+        result = self.overlay_hotspots.handle(event)
+        if result:
+            kind, choice = result
+            self.pause_choice = choice
+            if kind == "click":
+                self.choose_pause()
+        elif event.type == pygame.KEYDOWN:
+            if event.key in (pygame.K_ESCAPE, pygame.K_p):
+                self.paused = False
+            elif event.key in (pygame.K_w, pygame.K_UP, pygame.K_s, pygame.K_DOWN):
+                self.pause_choice = 1 - self.pause_choice
+            elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                self.choose_pause()
+
+    def choose_pause(self):
+        if PAUSE_OPTIONS[self.pause_choice] == "Resume":
+            self.paused = False
+        else:
+            quit_run(self.game)
 
     def closed_chest(self):
         return None if self.chest_opened else self.level.chest
@@ -167,6 +208,8 @@ class CombatScene(Scene):
         self.end("won", title, *lines)
 
     def update(self, dt):
+        if self.paused:
+            return
         knight, helper = self.knight, self.helper
         self.time += dt
         if self.outcome:
@@ -262,15 +305,34 @@ class CombatScene(Scene):
         screen.blit(pygame.transform.scale(self.hud, (screen.get_width() - hud_x, screen.get_height())), (hud_x, 0))
 
         tip = self.current_tip()
-        if self.outcome or tip or not self.started:
+        if self.outcome or tip or not self.started or self.paused:
             self.overlay.fill((0, 0, 0, 0))
-            if self.outcome:
+            self.overlay_hotspots.clear()
+            if self.paused:
+                self.draw_pause(self.overlay)
+            elif self.outcome:
                 self.draw_banner(self.overlay)
             elif not self.started:
                 self.draw_start(self.overlay)
             else:
                 self.draw_tip(self.overlay, tip)
             screen.blit(pygame.transform.scale_by(self.overlay, ui.UI_SCALE), (0, 0))
+
+    def draw_pause(self, overlay):
+        overlay.fill((0, 0, 0, 150))
+        rect = pygame.Rect(0, 0, 120, 82)
+        rect.center = overlay.get_rect().center
+        ui.nine_slice(overlay, "panel9", rect)
+        ui.draw_text(overlay, "Paused", (rect.centerx, rect.y + 10), "gold", scale=2, anchor="midtop")
+        for i, label in enumerate(PAUSE_OPTIONS):
+            button = pygame.Rect(0, rect.y + 34 + i * 20, 84, 16)
+            button.centerx = rect.centerx
+            selected = i == self.pause_choice
+            state = "p" if self.overlay_hotspots.pressed == i else ("h" if selected else "n")
+            ui.button(overlay, button, label, "red" if i else "stone", state)
+            if selected:
+                pygame.draw.rect(overlay, GOLD, button.inflate(4, 4), 1)
+            self.overlay_hotspots.add(button, i)
 
     def current_tip(self):
         if self.cleared and not self.knight.dead:
@@ -330,16 +392,19 @@ class CombatScene(Scene):
             gear = backpack.queue[slot] if slot < len(backpack.queue) else None
             draw_slot(hud, gear, (w // 2 - 24 + col * 16, 130 + row * 15), marked=slot == 0 and gear is not None)
 
-        hints = ["E dig/give", "ESC quit"]
+        hints = ["E dig/give", "ESC pause"]
         if helper.held and GEAR[helper.held].helper_only:
             chest = self.closed_chest()
             hints[0] = "E chest" if chest is not None and helper.near(chest) else "E to bag"
         if not self.started and not self.outcome:
             hints = ["SPACE start"] + hints
+        self.hud_hotspots.clear()
         for i, hint in enumerate(hints):
             ready = hint == "SPACE start"
-            ui.draw_text(hud, hint, (w // 2, 155 + i * 8), "gold" if ready else "cream", anchor="midtop",
-                         alpha=255 if ready else DIM)
+            rect = ui.draw_text(hud, hint, (w // 2, 155 + i * 8), "gold" if ready else "cream", anchor="midtop",
+                                alpha=255 if ready else DIM)
+            if hint == "ESC pause":
+                self.hud_hotspots.add(rect.inflate(4, 2), "pause")  # click it to pause, too
 
     def draw_tip(self, overlay, lines):
         width = max(len(line) for line in lines) * ui.GLYPH_ADVANCE + 20

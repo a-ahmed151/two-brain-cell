@@ -19,6 +19,8 @@ You don't fight. You make sure he's holding the right thing at the right time.
 5. **Between rooms:** pick 1 of 3 gear for the bag, or after rooms 3 and 6, one of a priest's blessings. Change your mind freely: click a taken card to give it back, or another card to swap your pick for it. The next room's enemies are shown the same way, so you can get ready for it: pick any two slots, among the bag's slots and **the Knight's tool and item hands**, to swap them (tools only go in his tool hand, items only in his item hand).
 6. **The run ends** if the Knight dies or the Helper dies. Back to bag select.
 
+**Quitting a run:** ESC (or P, or clicking "ESC pause" on the side panel) pauses a fight, with **Resume** and **Quit run**. Between rooms, the Quit run button at the top left (or ESC) asks once more, then quits. Quitting goes back to the main menu.
+
 ## The Knight
 - Targets the **nearest enemy**, walks to it (around walls) and swings on a cooldown (0.8 s).
 - **Damage depends on his tool** and the enemy's tags (see Gear). Bare-handed he does 1.
@@ -34,9 +36,11 @@ You don't fight. You make sure he's holding the right thing at the right time.
 ## Backpacks
 | Bag | Slots | Extract time | Starting kit |
 |---|---|---|---|
-| **Satchel** | 4 | 0.8 s | Potion, Pickaxe |
-| **Hauler** | 6 | 1.6 s | Potion, Pickaxe, Torch, Bomb |
+| **Satchel** | 4 | 0.8 s | Potion, Key |
+| **Hauler** | 6 | 1.6 s | 2 Potions, Key, 2 Bombs |
 | **Pouch** | 2 | 0.3 s | Potion |
+
+Bags start with items only; every other tool has to come from rewards.
 
 The trade-off: a big bag carries the answer to everything but is slow to swap mid-fight; a small bag swaps instantly but you have to guess what's coming.
 

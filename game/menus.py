@@ -10,7 +10,7 @@ import pygame
 
 from game import ui
 from game.backpack import BAGS
-from game.combat import CombatScene
+from game.combat import CombatScene, quit_run
 from game.enemies import draw_lineup
 from game.entities import helper_frame, knight_frame
 from game.gear import GEAR, ITEM, TOOL, draw_icon
@@ -312,6 +312,7 @@ class RewardScene(MenuScene):
         self.pending = None  # a card waiting for a bag slot to replace
         self.notice = ""
         self.notice_left = 0.0
+        self.quitting = False  # the quit button was clicked once; a second click quits
         self.priests = [pygame.image.load(self.PRIEST.format(i, i)).convert_alpha() for i in (1, 2, 3)]
 
     @property
@@ -444,9 +445,20 @@ class RewardScene(MenuScene):
         elif kind == "go":
             self.section = "go"
 
+    def quit_button(self):
+        if self.quitting:
+            quit_run(self.game)
+        else:
+            self.quitting = True
+            self.say("Again to quit the run (ESC/click).")
+
     def on_click(self, key):
         kind, value = key
-        if kind == "cards":
+        if kind != "quit":
+            self.quitting = False
+        if kind == "quit":
+            self.quit_button()
+        elif kind == "cards":
             self.choose_card(value)
         elif kind == "slots":
             self.choose_slot(value)
@@ -455,8 +467,11 @@ class RewardScene(MenuScene):
 
     def on_key(self, key):
         if key == pygame.K_ESCAPE:
+            if self.pending is None and self.grabbed is None:
+                self.quit_button()  # twice to quit the run
             self.pending = self.grabbed = None
             return
+        self.quitting = False
         sections = self.sections()
         index = sections.index(self.section)
         if key in UP_KEYS and index > 0:
@@ -487,6 +502,9 @@ class RewardScene(MenuScene):
         else:
             title = "Pick two" if len(self.taken) + self.picks > 1 else "Pick a reward"
         ui.draw_text(canvas, title, (160, 14), "gold", scale=2, anchor="center")
+        quit_rect = canvas.blit(ui.sprite(f"icon_exit_{self.state(('quit', 0), self.quitting)}"), (6, 6))
+        self.hotspots.add(quit_rect, ("quit", 0))
+        ui.draw_text(canvas, "Quit run", (3, quit_rect.bottom + 1), alpha=255 if self.quitting else DIM)
         if self.cards:
             self.draw_cards(canvas)
         else:
@@ -497,6 +515,8 @@ class RewardScene(MenuScene):
         label = "Next: the boss" if self.run.boss_room else f"Next: room {self.run.room + 1}"
         ui.draw_text(canvas, label, (30, 130), "gold")
         draw_lineup(canvas, self.run.enemies, (190, 134))
+        if self.quitting and not self.notice_left:
+            self.quitting = False  # the confirm window ran out
         if self.notice_left:
             message = self.notice
         elif self.pending is not None:

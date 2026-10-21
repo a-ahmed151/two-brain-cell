@@ -18,8 +18,8 @@ DIG_SPEEDUP = 0.75  # the shrine's "faster digging" multiplies the extract time 
 
 # Each bag starts with a different kit; the Knight always starts holding the Sword.
 STARTING_KIT = {
-    "satchel": ["potion", "pickaxe"],
-    "hauler": ["potion", "pickaxe", "torch", "bomb"],
+    "satchel": ["potion", "key"],
+    "hauler": ["potion", "potion", "key", "bomb", "bomb"],
     "pouch": ["potion"],
 }
 KNIGHT_TOOL = "sword"
