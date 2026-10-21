@@ -61,7 +61,7 @@ The trade-off: a big bag carries the answer to everything but is slow to swap mi
 | Sword | 3 | ×0.67 vs armored (2 damage) |
 | Pickaxe | 1 | ×5 vs armored |
 | Torch | 1 | ×4 vs things that burn (4 to skulls), and ×2 more vs vampires (8). Fire: a vampire it hits can't heal any more |
-| Shield | 1 | He takes half damage |
+| Shield | 1 | Every swing hits every enemy within 24 px of him (48 px for the Count), not just his target. Every hit he takes does 1 damage |
 
 **Items (used up; he uses them by himself, except the Key)**
 | Gear | When he uses it |

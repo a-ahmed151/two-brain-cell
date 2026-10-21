@@ -23,7 +23,8 @@ class GearType:
     # Tools: what he hits for while holding it, and how it changes vs enemy tags.
     damage: int = 0
     bonus: dict = field(default_factory=dict)  # enemy tag -> damage multiplier
-    guard: float = 1.0  # multiplier on damage he takes while holding it
+    max_hit: int | None = None  # caps every hit he takes while holding it
+    sweep: int = 0  # radius: each swing also hits every other enemy this close to him
     fire: bool = False  # its hits burn: a burned vampire can't heal any more
     helper_only: bool = False  # the Helper uses it; it can't go in the Knight's hands
 
@@ -40,7 +41,8 @@ GEAR = {
                         bonus={"armored": 5}),
     "torch": GearType("Torch", TOOL, (240, 160, 40), "Burns undead. Stops healing.", damage=1,
                       bonus={"burns": 4, "vampire": 2}, fire=True),
-    "shield": GearType("Shield", TOOL, (70, 110, 190), "Halves damage taken.", damage=1, guard=0.5),
+    "shield": GearType("Shield", TOOL, (70, 110, 190), "Bashes all around. Hits on him do 1.", damage=1,
+                       max_hit=1, sweep=24),
     "key": GearType("Key", ITEM, (230, 200, 60), "You open the room's chest.", helper_only=True),
     "bomb": GearType("Bomb", ITEM, (75, 75, 85), "Blasts enemies near him."),
     "potion": GearType("Potion", ITEM, (210, 60, 90), "Drunk when he's hurt."),

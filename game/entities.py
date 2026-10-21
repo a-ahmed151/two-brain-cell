@@ -149,11 +149,11 @@ class Knight:
         self.popups.append(Popup(pos if pos is not None else self.pos + (0, -16), text, color))
 
     def hurt(self, amount):
-        """Take a hit (softened by a Shield). Returns the damage actually dealt."""
+        """Take a hit (a Shield turns it into 1). Returns the damage actually dealt."""
         if self.dead:
             return 0
-        guard = GEAR[self.tool].guard if self.tool else 1.0
-        dealt = max(1, round(amount * guard))
+        cap = GEAR[self.tool].max_hit if self.tool else None
+        dealt = min(amount, cap) if cap else amount
         self.hp -= dealt
         self.flash = HURT_FLASH
         self.popup(f"-{dealt}", (240, 90, 90))
@@ -228,11 +228,16 @@ class Knight:
             self.lunge_dir = to_target.normalize() if to_target.length_squared() else pygame.Vector2()
             if to_target.length_squared():
                 self.facing = self.lunge_dir
-            damage = self.damage_against(target)
             fire = bool(self.tool) and GEAR[self.tool].fire
-            target.hurt(damage, fire)
             color = (255, 160, 60) if fire else (255, 255, 255)
-            self.popup(str(damage), color, target.pos + (0, -12 * target.type.scale))
+            sweep = GEAR[self.tool].sweep if self.tool else 0
+            # A Shield bash hits everything around him, not just his target.
+            hit = [target] + [e for e in alive if e is not target
+                              and e.pos.distance_to(self.pos) <= sweep * e.type.scale]
+            for enemy in hit:
+                damage = self.damage_against(enemy)
+                enemy.hurt(damage, fire)
+                self.popup(str(damage), color, enemy.pos + (0, -12 * enemy.type.scale))
 
     def _walk_to(self, point, dt, stop, level=None):
         """Step toward `point`; True once within `stop` pixels of it."""
