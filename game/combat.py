@@ -18,13 +18,16 @@ VIEW = (320, 240)  # one arena; 960x720 on screen
 HUD_SIZE = (80, 180)  # side panel on the UI canvas scale (4x), right of the world
 CHEST_FRAMES = "assets/items and trap_animation/chest/chest_{}1.png"
 
-EXIT_COLOR = (60, 170, 90)
 HIGHLIGHT_COLOR = (120, 220, 255)
 GOLD = (232, 177, 58)
 SLOT_COLOR = (107, 78, 99)
 HP_COLOR = (210, 60, 70)
 DIM = 130
 GLOAT_TIME = 2.5  # boss room: he poses this long before heading for the exit
+DOORSTEP_REACH = 10  # how close the Helper must get to the open exit's doorstep to leave
+OPEN_DOOR = (79, 47, 48)  # tileset gids: dark doorway, left door leaf, right door leaf (drawn flipped)
+ARROW_FRAMES = [f"assets/interface/arrow_{i}.png" for i in range(1, 5)]  # point down
+ARROW_FPS = 8
 BETRAYAL_DELAY = 2.5  # seconds of the Knight lying there before the ending
 DEATH_DELAY = 1.0  # seconds before the "he's dead" banner, so you see what got him
 ICON_FONT = ui.IconFont()
@@ -57,6 +60,21 @@ def draw_level(surface, level, tiles):
                 gid = layer[row][col]
                 if gid:
                     surface.blit(tiles[gid], (col * ts, row * ts))
+
+
+@cache
+def arrow_frames():
+    """The bobbing arrow under the open exit, turned to point up at it."""
+    return [pygame.transform.rotate(pygame.image.load(p).convert_alpha(), 180) for p in ARROW_FRAMES]
+
+
+def draw_open_door(surface, tiles, center):
+    """Draw the two-tile exit door, opened, centred on `center` (the door's middle)."""
+    void, left, right = (tiles[g] for g in OPEN_DOOR)
+    for i, leaf in ((0, left), (1, pygame.transform.flip(right, True, False))):
+        pos = (center.x - 16 + i * 16, center.y - 8)
+        surface.blit(void, pos)
+        surface.blit(leaf, pos)
 
 
 @cache
@@ -188,8 +206,9 @@ class CombatScene(Scene):
         self.banner = (title, lines)
 
     def room_clear(self):
-        """Carry the Knight and the bag over into the next room. Gear the Helper is still
-        holding, and his unused item, go to the back of the bag; he keeps his tool."""
+        """The Helper walked out of the open exit. Carry the Knight and the bag over into
+        the next room: gear the Helper is still holding, and his unused item, go to the
+        back of the bag; he keeps his tool."""
         knight, helper, run = self.knight, self.helper, self.run
         if helper.held:
             run.backpack.put_back(helper.held)
@@ -200,12 +219,8 @@ class CombatScene(Scene):
             knight.item = None
         run.knight_hp = min(knight.max_hp, knight.hp + ROOM_REST)  # he catches his breath
         run.hands = {TOOL: knight.tool, ITEM: knight.item}
-        title = "Room clear!"
-        lines = [f"He rests: {run.knight_hp}/{knight.max_hp} HP"]
-        if self.chest_opened:
-            lines.append("Chest! Two rewards this time.")
-        lines.append("ENTER: continue")
-        self.end("won", title, *lines)
+        self.outcome = "won"  # nothing more happens in this room
+        self.leave()
 
     def update(self, dt):
         if self.paused:
@@ -248,21 +263,26 @@ class CombatScene(Scene):
         if not helper.alive:
             self.end("lost", "You're dead.", "Who carries his stuff now?", "ENTER: new run")
             return
-        if self.enemies or not knight.fighting:
+        if self.enemies:
             return
 
-        if not self.run.boss_room:
-            self.room_clear()
-            return
-        # The boss is dead. He'll take all the credit again... unless he never gets out.
         if not self.cleared:
+            # The exit opens. There's time to open the chest before walking out.
             self.cleared = True
             knight.fighting = False
-            knight.popup("Hah! My skill is unmatched.", GOLD)
-            helper.backpack.queue.insert(0, "poison")
+            if self.run.boss_room:
+                knight.popup("Hah! My skill is unmatched.", GOLD)
+                helper.backpack.queue.insert(0, "poison")
+            else:
+                knight.popup("Hah! Too easy.", GOLD)
+        if not self.run.boss_room:
+            if pygame.Vector2(helper.rect.center).distance_to(self.level.doorstep) <= DOORSTEP_REACH:
+                self.room_clear()
+            return
+        # The boss is dead. He'll take all the credit again... unless he never gets out.
         self.gloat += dt
         if self.gloat >= GLOAT_TIME and knight.leaving is None:
-            knight.leaving = pygame.Vector2(self.level.exit_pos)
+            knight.leaving = pygame.Vector2(self.level.doorstep)
         if knight.reached_exit:
             self.game.current_run = None
             self.end("lost", "Too late!", "He took the gold and the credit.", "Again.", "ENTER: new run")
@@ -277,9 +297,11 @@ class CombatScene(Scene):
             image = chest_image(self.chest_opened)
             world.blit(image, image.get_rect(center=self.level.chest))
         if self.cleared:
-            door = pygame.Rect(0, 0, 13, 13)
-            door.center = self.level.exit_pos
-            pygame.draw.rect(world, EXIT_COLOR, door, 2)
+            draw_open_door(world, self.tiles, self.level.exit_pos)
+            if not self.run.boss_room:
+                frames = arrow_frames()
+                arrow = frames[int(self.time * ARROW_FPS) % len(frames)]
+                world.blit(arrow, arrow.get_rect(midtop=self.level.doorstep + (0, 6)))
         if helper.held and GEAR[helper.held].helper_only:
             chest = self.closed_chest()
             if chest is not None and helper.near(chest):
@@ -315,7 +337,7 @@ class CombatScene(Scene):
             elif not self.started:
                 self.draw_start(self.overlay)
             else:
-                self.draw_tip(self.overlay, tip)
+                self.draw_tip(self.overlay, tip, bottom=True)
             screen.blit(pygame.transform.scale_by(self.overlay, ui.UI_SCALE), (0, 0))
 
     def draw_pause(self, overlay):
@@ -335,9 +357,14 @@ class CombatScene(Scene):
             self.overlay_hotspots.add(button, i)
 
     def current_tip(self):
-        if self.cleared and not self.knight.dead:
-            return ["He'll take the credit again...", "There's Poison on top of the bag."]
-        return None
+        if not self.cleared or self.knight.dead:
+            return None
+        # One line, so it sits on the bottom wall and keeps the room (and the chest) in view.
+        if self.run.boss_room:
+            return ["Credit again? There's Poison in the bag."]
+        if self.closed_chest() is not None and "key" in self.helper.backpack.queue + [self.helper.held]:
+            return ["Clear! Open the chest, then exit."]
+        return ["Clear! Walk out the open door."]
 
     def draw_start(self, overlay):
         """Before the fight: what's in the room, over a dimmed view, until SPACE."""
@@ -406,10 +433,12 @@ class CombatScene(Scene):
             if hint == "ESC pause":
                 self.hud_hotspots.add(rect.inflate(4, 2), "pause")  # click it to pause, too
 
-    def draw_tip(self, overlay, lines):
+    def draw_tip(self, overlay, lines, bottom=False):
         width = max(len(line) for line in lines) * ui.GLYPH_ADVANCE + 20
         rect = pygame.Rect(0, 4, max(width, 100), 12 + 10 * len(lines))
         rect.centerx = overlay.get_width() // 2
+        if bottom:
+            rect.bottom = overlay.get_height() - 4  # keeps the doors in the top wall in view
         ui.nine_slice(overlay, "panel9", rect)
         for i, line in enumerate(lines):
             ui.draw_text(overlay, line, (rect.centerx, rect.y + 7 + i * 10), "gold" if i == 0 else "cream",

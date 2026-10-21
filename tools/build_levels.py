@@ -3,8 +3,9 @@
 Each arena is one screen (20x15 tiles) and is drawn one character per 16 px tile:
   #   wall or void (autotiled: wall faces, caps, pillars and corners next to floor; dark void elsewhere)
   .   floor
-  K   the Knight's start    H   the Helper's start    X   the exit door (where he leaves the room)
-  E   an enemy spawn point  C   the chest (a Key opens it)
+  K   the Knight's start    H   the Helper's start    E   an enemy spawn point    C   the chest
+  NN  the entrance door (closed behind you)   XX  the exit door (opens once the room is clear)
+      Doors are two tiles wide and sit in the top wall, with floor below them.
 Decor (drawn on the decor layer, never solid):
   ^   wall torch    =   banner   (on a wall cell)
   %   bones    &   cobweb    $   chest    +   box    !   candle stand   (on a floor cell)
@@ -31,22 +32,23 @@ CORNER = {"se": 1, "sw": 6, "ne": 41, "nw": 46}  # which diagonal the room is on
 VOID = 79
 FLOORS = [7, 7, 8, 7, 9, 7, 17, 19]
 DECOR = {"^": 91, "=": 75, "%": 78, "&": 65, "$": 84, "+": 82, "!": 94}
-WALL_DECOR = "^="
-MARKERS = {"K": "knight_start", "H": "helper_start", "X": "exit", "E": "spawn", "C": "chest"}
+WALL_DECOR = "^=NX"
+DOORS = {"N": (67, 68), "X": (37, 38)}  # left and right tile of each two-tile door
+MARKERS = {"K": "knight_start", "H": "helper_start", "E": "spawn", "C": "chest"}
 
 ARENAS = {
     "arena_1.tmj": dict(name="Crypt", layout="""
 ####################
 ####################
-###^####=##=####^###
-##&......X.......%##
+###NN###=##=###XX###
+##&...............##
+##.K.H............##
 ##................##
-##..E..........E..##
-##................##
+##.......##....E..##
 ##.......##.......##
-##.K.H...##.....E.##
+##..E...........E.##
 ##................##
-##..E.........C...##
+##.....E......C...##
 ##................##
 ##%..............!##
 ####################
@@ -55,13 +57,13 @@ ARENAS = {
     "arena_2.tmj": dict(name="Pillar Hall", layout="""
 ####################
 ####################
-###^#####==#####^###
-##.......X........##
-##..E..........E..##
+###NN####==####XX###
+##.K.H............##
+##................##
 ##...##......##...##
-##...##......##...##
-##.K.............E##
-##.H..............##
+##...##..E...##.E.##
+##................##
+##..E.............##
 ##...##......##...##
 ##...##......##...##
 ##..E....C.....E..##
@@ -72,13 +74,13 @@ ARENAS = {
     "arena_3.tmj": dict(name="Cross Vault", layout="""
 ####################
 ####################
-####^####=#####^####
-###......X.......###
-###..E........E..###
+####NN###=####XX####
+###..............###
+###.K.H.......E..###
 #####..........#####
 ##..............E.##
-##.K.H............##
 ##................##
+##..E.............##
 #####..........#####
 ###..E.......C...###
 ###..............###
@@ -149,6 +151,10 @@ def build(spec):
     h, w = len(grid), len(grid[0])
     floor, walls = autotile(grid)
     decor = [[DECOR.get(grid[y][x], 0) for x in range(w)] for y in range(h)]
+    for y, row in enumerate(grid):
+        for x, ch in enumerate(row):
+            if ch in DOORS:
+                decor[y][x] = DOORS[ch][0 if x == 0 or row[x - 1] != ch else 1]
 
     marks = {}
     for y, row in enumerate(grid):
@@ -158,6 +164,11 @@ def build(spec):
     for ch, kind in MARKERS.items():
         for x, y in marks.get(ch, []):
             objects.append(point(len(objects) + 1, kind, x, y))
+    for ch, kind in (("N", "entrance"), ("X", "exit")):
+        (x0, y), _ = marks[ch]  # the door's left tile; the object sits in the middle of the door
+        door = point(len(objects) + 1, kind, x0, y)
+        door["x"] += TILE // 2
+        objects.append(door)
 
     def tile_layer(lid, name, cells):
         return {"data": [g for row in cells for g in row], "height": h, "id": lid, "name": name,

@@ -15,7 +15,7 @@ You don't fight. You make sure he's holding the right thing at the right time.
 1. **Pick a bag** (Satchel, Hauler or Pouch). Each starts with its own kit; the Knight always starts holding the Sword. Then **get ready** for room 1 (see step 5).
 2. **8 rooms, then the boss.** Each room is one screen with a random arena and a random enemy mix for its stage.
 3. **Before each fight** the room is frozen behind an overlay showing its enemies (picture, count and the gear that beats each one) and advice ("Armor: the Sword is weak. Pickaxe!"). Nothing moves until **SPACE**.
-4. **The room is clear** when every enemy is dead. He rests (+5 HP) and keeps his tool. Gear still in the Helper's hands and his unused item go to the **back of the bag** (his item stays in hand only if the bag is full).
+4. **The room is clear** when every enemy is dead. Nothing moves you on automatically: the **exit door** in the top wall opens (an arrow points at it), and you still have time to open the chest. **Walk the Helper out of the exit** to move on. Each room also has an arched **entrance door**, closed behind you, showing where you came in. On leaving, he rests (+5 HP) and keeps his tool. Gear still in the Helper's hands and his unused item go to the **back of the bag** (his item stays in hand only if the bag is full).
 5. **Between rooms:** pick 1 of 3 gear for the bag, or after rooms 3 and 6, one of a priest's blessings. Change your mind freely: click a taken card to give it back, or another card to swap your pick for it. The next room's enemies are shown the same way, so you can get ready for it: pick any two slots, among the bag's slots and **the Knight's tool and item hands**, to swap them (tools only go in his tool hand, items only in his item hand).
 6. **The run ends** if the Knight dies or the Helper dies. Back to bag select.
 
@@ -90,6 +90,6 @@ Every room, the Knight takes the credit. When the Count falls, the Knight gloats
 ## Arenas
 Arenas are one screen (20×15 tiles, 320×240 px, shown at 960×720 with the HUD on the right). They're built by `tools/build_levels.py` from ASCII sketches, which autotiles the walls:
 
-`#` wall, `.` floor, `K` Knight start, `H` Helper start, `X` exit door, `E` enemy spawn, `C` chest, plus symbols for decor (see the script's docstring). It writes Tiled maps (`levels/arena_*.tmj`) that can be polished in Tiled, but re-running the script overwrites them. The game loads every `.tmj` in `levels/`.
+`#` wall, `.` floor, `K` Knight start, `H` Helper start, `NN` entrance door and `XX` exit door (two tiles wide, in the top wall, with floor below), `E` enemy spawn, `C` chest, plus symbols for decor (see the script's docstring). It writes Tiled maps (`levels/arena_*.tmj`) that can be polished in Tiled, but re-running the script overwrites them. The game loads every `.tmj` in `levels/`.
 
 The Knight and the enemies find their way around pillars with a tile path search (`Level.route` in `game/level.py`), so arenas can have pillars and nooks, but keep every floor tile reachable.

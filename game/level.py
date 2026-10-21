@@ -24,7 +24,7 @@ class Level:
     tileset: dict  # first embedded Tiled tileset; "image" is resolved to a path from the project root
     knight_start: pygame.Vector2
     helper_start: pygame.Vector2
-    exit_pos: pygame.Vector2  # the door he leaves through once the room is clear
+    exit_pos: pygame.Vector2  # middle of the exit door, in the top wall; it opens once the room is clear
     spawns: list[pygame.Vector2]  # where enemies appear
     chest: pygame.Vector2 | None  # opened with a Key for an extra reward
 
@@ -35,6 +35,11 @@ class Level:
     @property
     def pixel_height(self):
         return self.height * self.tile_size
+
+    @property
+    def doorstep(self):
+        """The floor just inside the exit door: walk here to leave the room."""
+        return self.exit_pos + (0, self.tile_size)
 
     def rect_hits_wall(self, rect):
         ts = self.tile_size

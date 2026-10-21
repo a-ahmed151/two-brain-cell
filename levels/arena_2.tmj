@@ -11,7 +11,7 @@
  "tileheight": 16,
  "compressionlevel": -1,
  "nextlayerid": 5,
- "nextobjectid": 10,
+ "nextobjectid": 11,
  "properties": [
   {
    "name": "name",
@@ -706,8 +706,8 @@
     0,
     0,
     0,
-    91,
-    0,
+    67,
+    68,
     0,
     0,
     0,
@@ -718,8 +718,8 @@
     0,
     0,
     0,
-    0,
-    91,
+    37,
+    38,
     0,
     0,
     0,
@@ -994,7 +994,7 @@
      "visible": true,
      "width": 0,
      "x": 56,
-     "y": 120
+     "y": 56
     },
     {
      "height": 0,
@@ -1005,20 +1005,20 @@
      "type": "helper_start",
      "visible": true,
      "width": 0,
-     "x": 56,
-     "y": 136
+     "x": 88,
+     "y": 56
     },
     {
      "height": 0,
      "id": 3,
-     "name": "exit",
+     "name": "spawn",
      "point": true,
      "rotation": 0,
-     "type": "exit",
+     "type": "spawn",
      "visible": true,
      "width": 0,
      "x": 152,
-     "y": 56
+     "y": 104
     },
     {
      "height": 0,
@@ -1029,8 +1029,8 @@
      "type": "spawn",
      "visible": true,
      "width": 0,
-     "x": 72,
-     "y": 72
+     "x": 264,
+     "y": 104
     },
     {
      "height": 0,
@@ -1041,24 +1041,12 @@
      "type": "spawn",
      "visible": true,
      "width": 0,
-     "x": 248,
-     "y": 72
+     "x": 72,
+     "y": 136
     },
     {
      "height": 0,
      "id": 6,
-     "name": "spawn",
-     "point": true,
-     "rotation": 0,
-     "type": "spawn",
-     "visible": true,
-     "width": 0,
-     "x": 280,
-     "y": 120
-    },
-    {
-     "height": 0,
-     "id": 7,
      "name": "spawn",
      "point": true,
      "rotation": 0,
@@ -1070,7 +1058,7 @@
     },
     {
      "height": 0,
-     "id": 8,
+     "id": 7,
      "name": "spawn",
      "point": true,
      "rotation": 0,
@@ -1082,7 +1070,7 @@
     },
     {
      "height": 0,
-     "id": 9,
+     "id": 8,
      "name": "chest",
      "point": true,
      "rotation": 0,
@@ -1091,6 +1079,30 @@
      "width": 0,
      "x": 152,
      "y": 184
+    },
+    {
+     "height": 0,
+     "id": 9,
+     "name": "entrance",
+     "point": true,
+     "rotation": 0,
+     "type": "entrance",
+     "visible": true,
+     "width": 0,
+     "x": 64,
+     "y": 40
+    },
+    {
+     "height": 0,
+     "id": 10,
+     "name": "exit",
+     "point": true,
+     "rotation": 0,
+     "type": "exit",
+     "visible": true,
+     "width": 0,
+     "x": 256,
+     "y": 40
     }
    ]
   }
