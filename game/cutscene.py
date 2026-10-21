@@ -11,7 +11,7 @@ from functools import cache
 
 import pygame
 
-from game import story, ui
+from game import ui
 from game.combat import draw_level, draw_open_door
 from game.entities import helper_animations, helper_frame, knight_frame
 from game.scene import Scene
@@ -33,7 +33,7 @@ ARROW_FPS = 8
 SOUNDS = "assets/sounds/{}.wav"
 
 KNIGHT, HELPER = "knight", "helper"
-NAMES = {KNIGHT: story.KNIGHT_NAME, HELPER: "Player 2"}
+NAMES = {KNIGHT: "Sir Knight", HELPER: "Helper"}
 
 # (speaker, line, animation while it's on screen). The Helper never speaks (see
 # GAME_DESIGN.md), so his "lines" are what he does, in dashes.
@@ -45,7 +45,7 @@ SCRIPT = [
     (KNIGHT, "And yours, too! It's... uh...", "idle_right"),
     (HELPER, "- waits -", "idle_left"),
     (KNIGHT, "...", "idle_down"),
-    (KNIGHT, "Let's start... Player 2.", "idle_right"),
+    (KNIGHT, "Let's start... Helper.", "idle_right"),
     (HELPER, "- sighs, and heaves the bag onto his back -", "hold_up"),
     (KNIGHT, "Onward! Try to keep up!", "idle_up"),
 ]
