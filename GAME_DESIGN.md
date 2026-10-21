@@ -12,6 +12,7 @@ You are the **Helper** (Player 2). You carry the **backpack**. During each fight
 You don't fight. You make sure he's holding the right thing at the right time.
 
 ## A run
+0. **Levels** (main menu) lets you start a run at any room, the boss, or straight into the Trial: pick a door, pick a bag, and the run carries on from there with just the bag's starting kit. **Play** starts at room 1.
 1. **Pick a bag** (Satchel, Hauler or Pouch). Each starts with its own kit; the Knight always starts holding the Sword. Then **get ready** for room 1 (see step 5). Before room 1, a short **intro** plays: the Knight barges into a room where the Helper is waiting, they "talk" (he talks; the Helper's replies are actions), and they walk out into room 1 together. ENTER moves the dialogue on; ESC or Skip skips it (`game/cutscene.py`).
 2. **8 rooms, then the boss.** Each room is one screen with a random arena and a random enemy mix for its stage.
 3. **Before each fight** the room is frozen behind an overlay showing its enemies (picture, count and the gear that beats each one) and advice ("Armor: the Sword is weak. Pickaxe!"). Nothing moves until **SPACE**.
@@ -76,6 +77,23 @@ Enemy mixes are in `WAVES` in `game/run.py` (two options per room, picked at ran
 ## Blessings (priest rooms)
 Prayer (heal 15), Bigger bag (+1 slot), Quick hands (dig 25% faster).
 
+## The Trial (optional challenge)
+On the way to room 8, once per run, **a sealed door** offers the Trial of the Four Seals (`game/trial.py`). Walk past for the normal reward, or go in.
+
+- **The quiz is answered by doing.** Before going in you read four riddles and pack a lent **Trial Pack** (8 slots, your bag's dig speed): Pickaxe, Torch, 2 Bombs, Potion, Shield. His own hands come along; your bag waits outside and is given back afterwards.
+- **Four seals, one after another**, in their own room (the Hall of Seals, `levels/trial.tmj`). Each seal's monsters are hurt by **one piece of gear only**; everything else shows "immune". The riddle of the next seal shows between seals.
+
+| Seal | Riddle | Monsters | Only hurt by |
+|---|---|---|---|
+| I | They wear the mountain. Break it. | 3 Iron Wardens | Pickaxe |
+| II | Born of dark, they fear the light. | 4 Shades, 2 Wisps (Wisps hunt the Helper) | Torch |
+| III | Blades can't wake stone. Thunder can. | 4 Gargoyles, in pairs | Bomb |
+| IV | Iron and shadow together. Be quick! | 2 Wardens, 2 Shades, 2 Wisps | Pickaxe *and* Torch: swap mid-fight |
+
+- **Spike traps** rise and fall in two groups that take turns (the up-down lanes, then the rest). Raised spikes take a heart from the Helper and 1 HP from the Knight. The Shield is a red herring; the Potion is your only heal for him.
+- He throws a Bomb as soon as any monster is near, so handing it over before seal III wastes it. If a seal needs gear that's used up (Bombs), the seal grants another, so it can never get stuck.
+- **Win:** walk out together: he's **fully healed**, your bag gets **+1 slot**, and you pick **2 rewards**. **Lose:** the run is over, and hearts lost in there stay lost.
+
 ## The betrayal (ending)
 Every room, the Knight takes the credit. When the Count falls, the Knight gloats ("Hah! My skill is unmatched."), and **Poison** appears on top of the bag. After a moment he heads for the exit.
 
@@ -91,6 +109,6 @@ Every room, the Knight takes the credit. When the Count falls, the Knight gloats
 ## Arenas
 Arenas are one screen (20×15 tiles, 320×240 px, shown at 960×720 with the HUD on the right). They're built by `tools/build_levels.py` from ASCII sketches, which autotiles the walls:
 
-`#` wall, `.` floor, `K` Knight start, `H` Helper start, `NN` entrance door and `XX` exit door (two tiles wide, in the top wall, with floor below), `E` enemy spawn, `C` chest, plus symbols for decor (see the script's docstring). It writes Tiled maps (`levels/arena_*.tmj`) that can be polished in Tiled, but re-running the script overwrites them. The game loads every `.tmj` in `levels/`.
+`#` wall, `.` floor, `K` Knight start, `H` Helper start, `NN` entrance door and `XX` exit door (two tiles wide, in the top wall, with floor below), `E` enemy spawn, `C` chest, plus symbols for decor (see the script's docstring). It writes Tiled maps (`levels/arena_*.tmj`) that can be polished in Tiled, but re-running the script overwrites them. The game loads every `.tmj` in `levels/`; `trial*.tmj` is the Trial's room and is never used for a normal room.
 
 The Knight and the enemies find their way around pillars with a tile path search (`Level.route` in `game/level.py`), so arenas can have pillars and nooks, but keep every floor tile reachable.

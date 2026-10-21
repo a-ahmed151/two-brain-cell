@@ -37,6 +37,7 @@ class EnemyType:
     tint: tuple | None = None
     summons: str | None = None  # boss: calls one of these every SUMMON_TIME
     counter: str = "sword"  # the gear that beats it, shown when the room is announced
+    only: str | None = None  # Trial monsters: nothing but this gear hurts them at all
 
 
 SUMMON_TIME = 7.0
@@ -52,6 +53,15 @@ ENEMIES = {
     "count": EnemyType("The Count", "vampire", "vampire", hp=50, speed=18, damage=4, cooldown=1.5,
                        tags=("burns", "vampire"), lifesteal=True, scale=2, tint=(255, 150, 150), summons="skull",
                        counter="torch"),
+    # The Trial's monsters (game/trial.py). Each is a riddle: only one piece of gear hurts it.
+    "warden": EnemyType("Iron Warden", "skeleton2", "skeleton2", hp=10, speed=14, damage=2, cooldown=1.5,
+                        tags=("armored",), tint=(240, 200, 90), only="pickaxe", counter="pickaxe"),
+    "shade": EnemyType("Shade", "vampire", "vampire", hp=4, speed=26, damage=2, cooldown=1.3, tags=("burns",),
+                       tint=(105, 115, 230), only="torch", counter="torch"),
+    "wisp": EnemyType("Wisp", "skull", "skull", hp=3, speed=36, damage=1, cooldown=1.2, tags=("burns",),
+                      hunts="helper", tint=(120, 235, 255), only="torch", counter="torch"),
+    "gargoyle": EnemyType("Gargoyle", "skeleton1", "skeleton", hp=8, speed=9, damage=4, cooldown=1.6,
+                          tint=(150, 150, 160), only="bomb", counter="bomb"),
 }
 
 
@@ -140,11 +150,16 @@ class Enemy:
     def reach(self):
         return ATTACK_RANGE * self.type.scale
 
-    def hurt(self, amount, fire=False):
-        self.hp -= amount
+    def hurt(self, amount, fire=False, gear=None):
+        """Take a hit from `gear` (None: bare fists). Returns the damage actually dealt:
+        0 if this is a Trial monster and that isn't the one gear that hurts it."""
         self.flash = HIT_FLASH
+        if self.type.only and gear != self.type.only:
+            return 0
+        self.hp -= amount
         if fire:
             self.burned = True
+        return amount
 
     def update(self, dt, knight, helper, level, others):
         """Chase the prey and hit it when close. Returns a new enemy kind to summon, or None."""

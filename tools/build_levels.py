@@ -4,6 +4,7 @@ Each arena is one screen (20x15 tiles) and is drawn one character per 16 px tile
   #   wall or void (autotiled: wall faces, caps, pillars and corners next to floor; dark void elsewhere)
   .   floor
   K   the Knight's start    H   the Helper's start    E   an enemy spawn point    C   the chest
+  s   a spike trap (floor; the Trial raises and lowers them)
   NN  the entrance door (closed behind you)   XX  the exit door (opens once the room is clear)
       Doors are two tiles wide and sit in the top wall, with floor below them.
 Decor (drawn on the decor layer, never solid):
@@ -34,7 +35,7 @@ FLOORS = [7, 7, 8, 7, 9, 7, 17, 19]
 DECOR = {"^": 91, "=": 75, "%": 78, "&": 65, "$": 84, "+": 82, "!": 94}
 WALL_DECOR = "^=NX"
 DOORS = {"N": (67, 68), "X": (37, 38)}  # left and right tile of each two-tile door
-MARKERS = {"K": "knight_start", "H": "helper_start", "E": "spawn", "C": "chest"}
+MARKERS = {"K": "knight_start", "H": "helper_start", "E": "spawn", "C": "chest", "s": "spike"}
 
 ARENAS = {
     "arena_1.tmj": dict(name="Crypt", layout="""
@@ -90,6 +91,28 @@ ARENAS = {
 """),
 }
 
+
+
+# The Trial of the Four Seals (game/trial.py): its own room, never used for a normal one.
+TRIALS = {
+    "trial.tmj": dict(name="Hall of Seals", layout="""
+####################
+####################
+###NN###=^^=###XX###
+##&.....s..s.....%##
+##.K.H..s..s....E.##
+##..##..s..s..##..##
+##..##........##..##
+##sss...E..E...sss##
+##..E....ss....E..##
+##..##........##..##
+##..##..s..s..##..##
+##......s..s......##
+##%..E..s..s..E..&##
+####################
+####################
+"""),
+}
 
 
 def parse(layout):
@@ -193,7 +216,7 @@ def build(spec):
 
 
 def main():
-    for filename, spec in ARENAS.items():
+    for filename, spec in {**ARENAS, **TRIALS}.items():
         with open(f"levels/{filename}", "w") as f:
             json.dump(build(spec), f, indent=1)
             f.write("\n")

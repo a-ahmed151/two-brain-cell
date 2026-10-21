@@ -10,7 +10,7 @@ from game import ui
 from game.enemies import ENEMIES, Enemy, draw_lineup
 from game.entities import HELPER_HP, Helper, Knight, Popup
 from game.gear import GEAR, ITEM, TOOL, draw_icon
-from game.run import ROOM_REST, ROOMS
+from game.run import ROOM_REST, ROOMS, TRIAL_ROOM
 from game.scene import Scene
 
 WORLD_SCALE = 3  # the world is drawn at native pixel-art size, then scaled up
@@ -213,6 +213,11 @@ class CombatScene(Scene):
         run = self.run
         shrine = run.shrine_next()
         run.room += 1
+        if run.room == TRIAL_ROOM and not run.trial_offered:
+            from game.trial import TrialOfferScene  # imports this module too
+            run.trial_offered = True
+            self.game.change_scene(TrialOfferScene(self.game, shrine))
+            return
         self.game.change_scene(RewardScene(self.game, shrine=shrine))
 
     def end(self, outcome, title, *lines):
@@ -283,6 +288,8 @@ class CombatScene(Scene):
             return
         if self.enemies:
             return
+        if not self.room_won(dt):
+            return
 
         if not self.cleared:
             # The exit opens. There's time to open the chest before walking out.
@@ -310,6 +317,11 @@ class CombatScene(Scene):
         if knight.reached_exit:
             self.game.current_run = None
             self.end("lost", "Too late!", "He took the gold and the credit.", "Again.", "ENTER: new run")
+
+    def room_won(self, dt):
+        """Called every frame once no enemies are left: True if the room is won (the Trial
+        brings on its next wave instead)."""
+        return True
 
     def walk_out(self, dt):
         """Both walk up through the open exit: the Helper first, the Knight right behind.
@@ -343,6 +355,7 @@ class CombatScene(Scene):
         knight, helper = self.knight, self.helper
         world = self.world
         world.blit(self.background, (0, 0))
+        self.draw_floor(world)
         if self.level.chest is not None:
             image = chest_image(self.chest_opened)
             world.blit(image, image.get_rect(center=self.level.chest))
@@ -396,6 +409,12 @@ class CombatScene(Scene):
             else:
                 self.draw_tip(self.overlay, tip, bottom=True)
             screen.blit(pygame.transform.scale_by(self.overlay, ui.UI_SCALE), (0, 0))
+
+    def draw_floor(self, world):
+        """Things on the floor under everyone (the Trial's spike traps)."""
+
+    def hud_title(self):
+        return "Boss" if self.run.boss_room else f"Room {self.run.room + 1}/{ROOMS}"
 
     def draw_pause(self, overlay):
         overlay.fill((0, 0, 0, 150))
@@ -451,8 +470,7 @@ class CombatScene(Scene):
         backpack = helper.backpack
         w = hud.get_width()
         ui.nine_slice(hud, "panel9", hud.get_rect())
-        room = "Boss" if self.run.boss_room else f"Room {self.run.room + 1}/{ROOMS}"
-        ui.draw_text(hud, room, (w // 2, 8), "gold", anchor="midtop")
+        ui.draw_text(hud, self.hud_title(), (w // 2, 8), "gold", anchor="midtop")
 
         ui.draw_text(hud, "Knight", (w // 2, 20), anchor="midtop", alpha=DIM)
         bar = pygame.Rect(w // 2 - 25, 30, 50, 4)
