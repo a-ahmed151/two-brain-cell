@@ -12,11 +12,11 @@ You are the **Helper** (Player 2). You carry the **backpack**. During each fight
 You don't fight. You make sure he's holding the right thing at the right time.
 
 ## A run
-1. **Pick a bag** (Satchel, Hauler or Pouch). Each starts with its own kit; the Knight always starts holding the Sword.
+1. **Pick a bag** (Satchel, Hauler or Pouch). Each starts with its own kit; the Knight always starts holding the Sword. Then **get ready** for room 1 (see step 5).
 2. **8 rooms, then the boss.** Each room is one screen with a random arena and a random enemy mix for its stage.
 3. **Before each fight** the room is frozen behind an overlay showing its enemies (picture, count and the gear that beats each one) and advice ("Armor: the Sword is weak. Pickaxe!"). Nothing moves until **SPACE**.
 4. **The room is clear** when every enemy is dead. He rests (+5 HP) and keeps his tool. Gear still in the Helper's hands and his unused item go to the **back of the bag** (his item stays in hand only if the bag is full).
-5. **Between rooms:** pick 1 of 3 gear for the bag, or after rooms 3 and 6, one of a priest's blessings. The next room's enemies are shown the same way, so you can sort the bag (swap two slots) for it.
+5. **Between rooms:** pick 1 of 3 gear for the bag, or after rooms 3 and 6, one of a priest's blessings. Change your mind freely: click a taken card to give it back, or another card to swap your pick for it. The next room's enemies are shown the same way, so you can get ready for it: pick any two slots, among the bag's slots and **the Knight's tool and item hands**, to swap them (tools only go in his tool hand, items only in his item hand).
 6. **The run ends** if the Knight dies or the Helper dies. Back to bag select.
 
 ## The Knight

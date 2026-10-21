@@ -9,7 +9,7 @@ import pygame
 from game import ui
 from game.enemies import ENEMIES, Enemy, draw_lineup
 from game.entities import HELPER_HP, Helper, Knight, Popup
-from game.gear import draw_icon
+from game.gear import ITEM, TOOL, draw_icon
 from game.run import ROOM_REST, ROOMS
 from game.scene import Scene
 
@@ -152,7 +152,7 @@ class CombatScene(Scene):
             run.backpack.put_back(knight.item)
             knight.item = None
         run.knight_hp = min(knight.max_hp, knight.hp + ROOM_REST)  # he catches his breath
-        run.knight_gear = [g for g in (knight.tool, knight.item) if g]
+        run.hands = {TOOL: knight.tool, ITEM: knight.item}
         title = "Room clear!"
         lines = [f"He rests: {run.knight_hp}/{knight.max_hp} HP"]
         if knight.chest_opened:

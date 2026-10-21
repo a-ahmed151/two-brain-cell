@@ -6,6 +6,7 @@ import random
 
 from game.backpack import BAGS, Backpack
 from game.entities import KNIGHT_MAX_HP
+from game.gear import ITEM, TOOL
 
 ROOMS = 9  # the last one is the boss
 SHRINE_AFTER = (2, 5)  # room indices followed by a priest instead of a reward
@@ -21,7 +22,7 @@ STARTING_KIT = {
     "hauler": ["potion", "pickaxe", "torch", "bomb"],
     "pouch": ["potion"],
 }
-KNIGHT_KIT = ["sword"]
+KNIGHT_TOOL = "sword"
 
 # Enemy mixes by stage; each room draws one at random. Index = room number.
 WAVES = [
@@ -44,7 +45,8 @@ class RunState:
         self.bag_id = bag_id
         self.backpack = Backpack(BAGS[bag_id], STARTING_KIT[bag_id])
         self.knight_hp = self.knight_max_hp = KNIGHT_MAX_HP
-        self.knight_gear = list(KNIGHT_KIT)  # what's in his hands, carried into the next room
+        # What's in his hands, carried into the next room. Either can be None.
+        self.hands = {TOOL: KNIGHT_TOOL, ITEM: None}
         self.room = 0
         self.rooms = [(self.rng.randrange(len(arenas)), self.rng.choice(waves)) for waves in WAVES]
         self.rooms[-1] = (0, WAVES[-1][0])  # the boss gets the open Crypt
@@ -69,6 +71,10 @@ class RunState:
 
     def roll_rewards(self, count=REWARD_CHOICES):
         return self.rng.sample(sorted(set(REWARD_POOL)), count)
+
+    @property
+    def knight_gear(self):
+        return [g for g in self.hands.values() if g]
 
     def bigger_bag(self):
         bag = self.backpack.bag

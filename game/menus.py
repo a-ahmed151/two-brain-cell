@@ -13,7 +13,7 @@ from game.backpack import BAGS
 from game.combat import CombatScene
 from game.enemies import draw_lineup
 from game.entities import helper_frame, knight_frame
-from game.gear import GEAR, draw_icon
+from game.gear import GEAR, ITEM, TOOL, draw_icon
 from game.level import load_level, load_tiles
 from game.run import ROOMS, SHRINE_HEAL, STARTING_KIT, RunState
 from game.scene import Scene
@@ -211,7 +211,7 @@ class RunStartScene(MenuScene):
     def start(self):
         bag_id = self.bags[self.selected]
         self.game.current_run = RunState(bag_id, self.game.levels)
-        self.game.change_scene(CombatScene(self.game))
+        self.game.change_scene(RewardScene(self.game, picks=0))
 
     def on_hover(self, key):
         if key != "start" and key != "back":
@@ -270,16 +270,23 @@ class RunStartScene(MenuScene):
 
 
 class RewardScene(MenuScene):
-    """Between rooms: pick gear for the bag (or a priest's blessing), then sort the bag.
+    """Between rooms: pick gear for the bag (or a priest's blessing), then get ready for
+    the next room by sorting the bag and choosing what the Knight holds.
 
-    Sections, top to bottom: the cards, the bag, the Go button. W/S moves between them.
-    In the bag, choosing two slots swaps them; with the bag full, a picked card
-    asks which gear to throw out for it.
+    Sections, top to bottom: the cards, the slots (bag, then his two hands), the Go
+    button. W/S moves between them. Choosing two slots swaps them; tools only go in his
+    tool hand and items in his item hand. Choosing a taken card gives it back, and
+    choosing another card once you've picked swaps your pick for it. With the bag full,
+    a picked card asks which gear to throw out for it.
+
+    With no picks and no blessing it's just the "get ready" screen (before room 1).
     """
 
     CARD_W, CARD_H, CARD_GAP, CARD_Y = 92, 58, 8, 30
     BAG_Y = 104
     GO_RECT = pygame.Rect(120, 156, 80, 15)
+    HAND_X = {TOOL: 250, ITEM: 276}
+    NOTICE_TIME = 2.0
     BLESSINGS = [
         ("heal", "Prayer", f"Heals the Knight {SHRINE_HEAL} HP."),
         ("slot", "Bigger bag", "One more slot."),
@@ -292,60 +299,144 @@ class RewardScene(MenuScene):
         self.run = game.current_run
         self.shrine = shrine
         self.picks = picks
-        self.cards = [b[0] for b in self.BLESSINGS] if shrine else self.run.roll_rewards()
-        self.taken = set()
-        self.section = "cards"
-        self.cursor = 0  # in the cards or the bag, whichever is focused
-        self.grabbed = None  # bag slot waiting for a second slot to swap with
+        if shrine:
+            self.cards = [b[0] for b in self.BLESSINGS]
+        else:
+            self.cards = self.run.roll_rewards() if picks else []
+        # Taken card -> how to undo it: for gear, what it replaced in a full bag (or
+        # None); for a blessing, the run's HP and bag before it.
+        self.taken = {}
+        self.section = "cards" if self.cards else "slots"
+        self.cursor = 0  # in the cards or the slots, whichever is focused
+        self.grabbed = None  # slot waiting for a second slot to swap with
         self.pending = None  # a card waiting for a bag slot to replace
+        self.notice = ""
+        self.notice_left = 0.0
         self.priests = [pygame.image.load(self.PRIEST.format(i, i)).convert_alpha() for i in (1, 2, 3)]
 
     @property
     def queue(self):
         return self.run.backpack.queue
 
+    @property
+    def slots(self):
+        """Every place gear can sit: the bag's slots in order, then his tool and item hands."""
+        return [("bag", i) for i in range(self.run.backpack.bag.slots)] + [("hand", TOOL), ("hand", ITEM)]
+
+    def say(self, text):
+        self.notice, self.notice_left = text, self.NOTICE_TIME
+
+    def update(self, dt):
+        super().update(dt)
+        self.notice_left = max(0.0, self.notice_left - dt)
+
+    # --- cards ---
+
+    def choose_card(self, index):
+        if index in self.taken:
+            self.give_back(index)
+        elif self.picks > 0:
+            self.take(index)
+        elif self.taken:
+            # Change your mind: swap the latest pick for this one.
+            if self.give_back(list(self.taken)[-1]):
+                self.take(index)
+
     def take(self, index):
-        if self.picks <= 0 or index in self.taken:
-            return
         card = self.cards[index]
         if self.shrine:
+            self.taken[index] = (self.run.knight_hp, self.run.backpack.bag)
             {"heal": self.run.heal, "slot": self.run.bigger_bag, "dig": self.run.faster_digging}[card]()
         elif self.run.backpack.full:
             self.pending = index
-            self.section, self.cursor = "bag", 0
+            self.section, self.cursor = "slots", 0
             return
         else:
             self.run.backpack.add(card)
-        self.taken.add(index)
+            self.taken[index] = None
         self.picks -= 1
         if self.picks == 0:
             self.section, self.cursor = "go", 0
 
-    def choose_slot(self, slot):
+    def give_back(self, index):
+        """Undo a taken card. Returns False if it can't be undone."""
+        card, record = self.cards[index], self.taken[index]
+        if self.shrine:
+            hp, bag = record
+            if len(self.queue) > bag.slots:
+                self.say("Empty a bag slot first.")
+                return False
+            self.run.knight_hp, self.run.backpack.bag = hp, bag
+        elif card in self.queue:
+            spot = len(self.queue) - 1 - self.queue[::-1].index(card)  # the copy added last
+            if record:
+                self.queue[spot] = record  # put back what it replaced
+            else:
+                del self.queue[spot]
+        elif self.run.hands[GEAR[card].hand] == card:
+            self.run.hands[GEAR[card].hand] = None
+            if record:
+                self.queue.append(record)
+        else:
+            return False
+        del self.taken[index]
+        self.picks += 1
+        self.grabbed = None
+        return True
+
+    # --- slots ---
+
+    def gear_at(self, slot):
+        kind, where = slot
+        if kind == "hand":
+            return self.run.hands[where]
+        return self.queue[where] if where < len(self.queue) else None
+
+    def choose_slot(self, index):
+        slot = self.slots[index]
         if self.pending is not None:
-            if slot < len(self.queue):
-                self.queue[slot] = self.cards[self.pending]
-                self.taken.add(self.pending)
+            if slot[0] == "bag" and self.gear_at(slot):
+                record = self.queue[slot[1]]
+                self.queue[slot[1]] = self.cards[self.pending]
+                self.taken[self.pending] = record
                 self.pending = None
                 self.picks -= 1
-                if self.picks > 0:
-                    self.section, self.cursor = "cards", 0
-            return
-        if slot >= len(self.queue):
+                self.section, self.cursor = ("cards", 0) if self.picks > 0 else ("go", 0)
             return
         if self.grabbed is None:
-            self.grabbed = slot
-        else:
-            a, b = self.grabbed, slot
-            self.queue[a], self.queue[b] = self.queue[b], self.queue[a]
+            self.grabbed = index
+        elif self.grabbed == index:
             self.grabbed = None
+        else:
+            self.swap(self.slots[self.grabbed], slot)
+            self.grabbed = None
+
+    def swap(self, a, b):
+        first, second = self.gear_at(a), self.gear_at(b)
+        for slot, gear in ((a, second), (b, first)):
+            if slot[0] == "hand" and gear and GEAR[gear].hand != slot[1]:
+                self.say(f"Only {slot[1]}s go in his {slot[1]} hand.")
+                return
+        # Lay the bag out slot by slot, swap, then close up the gaps.
+        bag = self.queue + [None] * max(0, self.run.backpack.bag.slots - len(self.queue))
+        for slot, gear in ((a, second), (b, first)):
+            if slot[0] == "hand":
+                self.run.hands[slot[1]] = gear
+            else:
+                bag[slot[1]] = gear
+        self.queue[:] = [g for g in bag if g]
+
+    # --- input ---
 
     def go(self):
         self.game.change_scene(CombatScene(self.game))
 
+    def sections(self):
+        return (["cards"] if self.cards else []) + ["slots", "go"]
+
     def on_hover(self, key):
         kind, value = key
-        if kind in ("cards", "bag"):
+        if kind in ("cards", "slots"):
             self.section, self.cursor = kind, value
         elif kind == "go":
             self.section = "go"
@@ -353,8 +444,8 @@ class RewardScene(MenuScene):
     def on_click(self, key):
         kind, value = key
         if kind == "cards":
-            self.take(value)
-        elif kind == "bag":
+            self.choose_card(value)
+        elif kind == "slots":
             self.choose_slot(value)
         elif kind == "go":
             self.go()
@@ -363,46 +454,61 @@ class RewardScene(MenuScene):
         if key == pygame.K_ESCAPE:
             self.pending = self.grabbed = None
             return
-        sections = ["cards", "bag", "go"]
+        sections = self.sections()
         index = sections.index(self.section)
         if key in UP_KEYS and index > 0:
             self.section, self.cursor = sections[index - 1], 0
-        elif key in DOWN_KEYS and index < 2:
+        elif key in DOWN_KEYS and index < len(sections) - 1:
             self.section, self.cursor = sections[index + 1], 0
         elif key in LEFT_KEYS:
             self.cursor = max(0, self.cursor - 1)
         elif key in RIGHT_KEYS:
-            count = len(self.cards) if self.section == "cards" else self.run.backpack.bag.slots
+            count = len(self.cards) if self.section == "cards" else len(self.slots)
             self.cursor = min(count - 1, self.cursor + 1)
         elif key in CONFIRM_KEYS:
             if self.section == "cards":
-                self.take(self.cursor)
-            elif self.section == "bag":
+                self.choose_card(self.cursor)
+            elif self.section == "slots":
                 self.choose_slot(self.cursor)
             else:
                 self.go()
 
+    # --- drawing ---
+
     def draw_canvas(self, canvas):
         canvas.blit(ui.background("levels_bg"), (0, 0))
-        title = "Blessing" if self.shrine else ("Pick a reward" if self.picks < 2 else "Pick two")
+        if self.shrine:
+            title = "Blessing"
+        elif not self.cards:
+            title = "Get ready"
+        else:
+            title = "Pick two" if len(self.taken) + self.picks > 1 else "Pick a reward"
         ui.draw_text(canvas, title, (160, 14), "gold", scale=2, anchor="center")
-        self.draw_cards(canvas)
-        self.draw_bag(canvas)
+        if self.cards:
+            self.draw_cards(canvas)
+        else:
+            ui.draw_text(canvas, "Sort the bag and choose what he holds.", (160, 50), anchor="midtop")
+            ui.draw_text(canvas, "The front of the bag is dug out first.", (160, 62), anchor="midtop", alpha=DIM)
+        self.draw_slots(canvas)
 
         label = "Next: the boss" if self.run.boss_room else f"Next: room {self.run.room + 1}"
         ui.draw_text(canvas, label, (30, 130), "gold")
         draw_lineup(canvas, self.run.enemies, (190, 134))
-        if self.pending is not None:
+        if self.notice_left:
+            message = self.notice
+        elif self.pending is not None:
             message = "Bag full! Pick gear to throw out."
         elif self.grabbed is not None:
-            message = "Now pick the slot to swap with."
+            message = "Now pick where it goes."
         elif self.picks > 0:
             message = "Choose a card, or skip with Go."
+        elif self.taken:
+            message = "Click another card to change it."
         else:
-            message = "Pick two bag slots to swap them."
+            message = "Pick a slot, then where it goes."
         ui.draw_text(canvas, message, (160, 146), anchor="midtop")
 
-        label = "Fight the boss" if self.run.boss_room else "Next room"
+        label = "Fight the boss" if self.run.boss_room else ("Next room" if self.run.room else "Start")
         ui.button(canvas, self.GO_RECT, label, "red", self.state(("go", 0), self.section == "go"))
         self.hotspots.add(self.GO_RECT, ("go", 0))
         if self.section == "go":
@@ -415,42 +521,44 @@ class RewardScene(MenuScene):
             rect = pygame.Rect(x + i * (self.CARD_W + self.CARD_GAP), self.CARD_Y, self.CARD_W, self.CARD_H)
             key = ("cards", i)
             focused = self.section == "cards" and self.cursor == i
-            dim = i in self.taken or self.picks <= 0
+            taken = i in self.taken
+            dim = not taken and self.picks <= 0
             if self.shrine:
                 _, name, blurb = self.BLESSINGS[i]
-                draw_card(canvas, rect, self.state(key, False), i in self.taken, name, blurb,
-                          image=self.priests[i], dim=dim and i not in self.taken)
+                draw_card(canvas, rect, self.state(key, False), taken, name, blurb, image=self.priests[i], dim=dim)
             else:
                 gear = GEAR[card]
-                draw_card(canvas, rect, self.state(key, False), i in self.taken, gear.name, gear.blurb,
-                          icon=card, dim=dim and i not in self.taken)
+                draw_card(canvas, rect, self.state(key, False), taken, gear.name, gear.blurb, icon=card, dim=dim)
             if focused or self.pending == i:
                 pygame.draw.rect(canvas, GOLD, rect.inflate(4, 4), 1)
             self.hotspots.add(rect, key)
 
-    def draw_bag(self, canvas):
-        backpack = self.run.backpack
-        bag = backpack.bag
+    def slot_rect(self, slot):
+        kind, where = slot
+        x = self.HAND_X[where] if kind == "hand" else 30 + where * 16
+        return pygame.Rect(x, self.BAG_Y, 13, 13)
+
+    def draw_slots(self, canvas):
+        bag = self.run.backpack.bag
         ui.draw_text(canvas, f"{bag.name}: {bag.slots} slots, dig {bag.extract_time}", (30, self.BAG_Y - 10),
                      alpha=DIM + 60)
-        for slot in range(bag.slots):
-            rect = pygame.Rect(30 + slot * 16, self.BAG_Y, 13, 13)
-            gear = self.queue[slot] if slot < len(self.queue) else None
+        ui.draw_text(canvas, "1st", (30, self.BAG_Y + 15), alpha=DIM)
+        ui.draw_text(canvas, f"Knight {self.run.knight_hp}/{self.run.knight_max_hp}", (293, self.BAG_Y - 10),
+                     anchor="topright", alpha=DIM + 60)
+        for hand, x in self.HAND_X.items():
+            ui.draw_text(canvas, hand, (x + 6, self.BAG_Y + 15), anchor="midtop", alpha=DIM)
+        for i, slot in enumerate(self.slots):
+            rect = self.slot_rect(slot)
+            gear = self.gear_at(slot)
             if gear:
                 draw_icon(canvas, ICON_FONT, gear, rect.center, size=13)
             else:
                 pygame.draw.rect(canvas, (107, 78, 99), rect, 1)
-            if slot == self.grabbed:
+            if i == self.grabbed:
                 pygame.draw.rect(canvas, (120, 220, 255), rect.inflate(4, 4), 1)
-            elif self.section == "bag" and self.cursor == slot:
+            elif self.section == "slots" and self.cursor == i:
                 pygame.draw.rect(canvas, GOLD, rect.inflate(4, 4), 1)
-            self.hotspots.add(rect, ("bag", slot))
-        ui.draw_text(canvas, "1st", (30, self.BAG_Y + 15), alpha=DIM)
-
-        ui.draw_text(canvas, f"Knight {self.run.knight_hp}/{self.run.knight_max_hp}", (290, self.BAG_Y - 10),
-                     anchor="topright", alpha=DIM + 60)
-        for i, gear in enumerate(self.run.knight_gear):
-            draw_icon(canvas, ICON_FONT, gear, (284 - i * 16, self.BAG_Y + 6), size=13)
+            self.hotspots.add(rect, ("slots", i))
 
 
 class EndingScene(MenuScene):
