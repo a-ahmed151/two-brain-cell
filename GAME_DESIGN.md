@@ -18,13 +18,14 @@ You don't fight. You make sure he's holding the right thing at the right time.
 - Has **two hands**:
   - **Weapon/tool slot:** reusable, kept until replaced
   - **Item slot:** consumed when used
-- **Uses gear automatically** when he reaches an obstacle that matches it (sword on a slime, key on a locked door)
+- **Uses gear automatically** when he reaches an obstacle that matches it (sword on a skeleton, key on a locked door, pickaxe on rubble). He stops in front of it for a moment while he does; keys are used up, tools are kept
 - **Dies** if he reaches an obstacle and isn't holding the right gear
 - **Starts holding gear** in both hands (set per level, e.g. Sword and Key). This gear isn't in the backpack.
 - Wins when he reaches the exit
 
 ## The Helper (you)
-- Moves freely with **WASD**
+- Moves with **WASD** through the dungeon's rooms and corridors. Walls stop them, and so does any obstacle the Knight hasn't dealt with yet: a skeleton in a corridor, a locked door or rubble blocks the Helper too, so the Knight has to be armed before he reaches it.
+- **TAB** (hold) shows the whole map; the camera otherwise follows the Helper. When the Knight is off screen, an arrow at the edge of the view points to him.
 - Carries **one backpack**, chosen before the run (see Backpacks). Its size limits how much gear you bring.
 - **Action button, step 1: dig.** Empty-handed, press it **anywhere** to start digging out the **next entry in the queue**. You can't skip or reorder entries mid-run.
 - **Digging takes time** (the bag's extract time). While digging you **can't move**, and a progress ring shows over the bag. When it fills, the gear is in the Helper's hands (shown above their head).
@@ -72,7 +73,7 @@ The puzzle has two halves: **planning** (which bag, what to pack and in what ord
 **Weapons/tools (reusable)**
 | Gear | Handles |
 |---|---|
-| Sword | Enemies (slimes, skeletons) |
+| Sword | Enemies (skeletons) |
 | Pickaxe | Rock piles, cracked walls |
 | Torch | Dark rooms (without it, he walks into a hidden pit) |
 | Shield | Arrow traps |
@@ -100,7 +101,7 @@ Every level, the Knight takes the 1,000 gold and the credit, and the Helper gets
 ## Puzzle design levers
 - **Bag choice:** the main lever. Count the obstacles and measure the gaps between them: many obstacles far apart points to the Hauler, few obstacles close together points to the Pouch.
 - **Backpack size:** fewer slots than obstacles, so tools have to be reused and items chosen carefully.
-- **Order:** the Torch needs to be in hand before the dark room, but the Sword is needed for the slime inside it.
+- **Order:** the Torch needs to be in hand before the dark room, but the Sword is needed for the skeleton inside it.
 - **Timing:** obstacles close together leave little time between hand-offs, and a slow bag may not finish the next dig in the gap. Hand off too early and he uses the wrong gear on the obstacle before.
 - **Dig spots:** the Helper needs a safe place to stand still and dig, then a route to catch up with the Knight. Put hazards where the obvious dig spot would be, or make the catch-up route long.
 - **Helper routing:** some hand-offs need the Helper to take a shortcut or get ahead of the Knight.
@@ -115,18 +116,37 @@ Every level, the Knight takes the 1,000 gold and the credit, and the Helper gets
 - The Helper never speaks. They just sigh, and sweat drops appear.
 - Level complete: the Knight gets 1,000 gold, the Helper gets "1 stale bread".
 
-## Levels (each one screen)
+## Teaching
+The first three levels teach the game one idea at a time, with three tools:
+1. **Failure that explains itself.** A death names what got him and what he needed ("A skeleton got him. He needed the Sword."). ENTER retries with the same bag; ESC goes back to repack.
+2. **The map shows the plan.** Every obstacle has the gear it needs drawn above it.
+3. **Coach prompts.** A level can name a coach script (`tutorial` map property, scripts in `game/tutorial.py`). The panel at the top of the map shows the first step that applies right now, so it reacts to what the player actually does: "Hold it! Give it AFTER he beats the skeleton." The Pack screen shows a one-line `pack_tip`.
+
+| Mechanic | Taught in |
+|---|---|
+| WASD; SPACE sends him; he walks a fixed path | 1 |
+| Dig (stand still; moving cancels), hold, give next to him | 1 |
+| He uses gear by himself and dies without it; tools are kept | 1 |
+| Two hands (tool + item); items are used up | 2 |
+| Packing: queue order is dig order; leave useless gear behind | 2 |
+| Swapping a tool sends the old one to the back of the queue | 3 |
+| Timing: handing over too early ruins the obstacle before | 3 |
+
+Coach panels cover the top of the view (about three tiles), so start rooms sit below the top three rows of the map.
+
+## Levels
 | # | Level | Best bag | Teaches |
 |---|---|---|---|
-| 1 | **The Slime** | Satchel (only bag) | Auto-use, and digging gear out before he needs it |
-| 2 | **Locked In** | Satchel (only bag) | Queue order: Sword, then Key |
-| 3 | **The Long Hall** | Hauler (unlocked here) | Five or six obstacles spaced far apart; the Satchel can't fit them all. Dig after every hand-off and catch up. |
-| 4 | **Cave-in** | Pouch (unlocked here) | Rocks and slimes packed tight; only a fast dig makes the gaps. Pickaxe over Bomb, and cycle the Sword back in. |
-| 5 | **Lights Out** | Satchel or Pouch | Dark room with an enemy inside: Torch, then Sword right after |
-| 6 | **The Gauntlet** | Player's choice | A long, spread-out first half and a tight cluster at the end. No bag is perfect; plan around its weakness. Red herrings in the pool. |
+| 1 | **First Blood** | Satchel (only bag) | He starts empty-handed; two skeletons. Dig the Sword, hand it over, send him in. One Sword handles both. |
+| 2 | **Locked In** | Satchel (only bag) | He starts with the Sword: skeleton, door, skeleton, door. Pool is Key, Pickaxe, Key; packing the Pickaxe swaps out his Sword. |
+| 3 | **Rubble** | Satchel (only bag) | He starts with the Sword: skeleton, rubble, skeleton, rubble, with one Pickaxe. Swap and swap back at the right moments. |
+| 4 | **The Long Hall** | Hauler (unlocked here) | Five or six obstacles spaced far apart; the Satchel can't fit them all. Dig after every hand-off and catch up. |
+| 5 | **Cave-in** | Pouch (unlocked here) | Rocks and skeletons packed tight; only a fast dig makes the gaps. Pickaxe over Bomb, and cycle the Sword back in. |
+| 6 | **Lights Out** | Satchel or Pouch | Dark room with an enemy inside: Torch, then Sword right after |
+| 7 | **The Gauntlet** | Player's choice | A long, spread-out first half and a tight cluster at the end. No bag is perfect; plan around its weakness. Red herrings in the pool. |
 | Last | **The Betrayal** | Player's choice | Get him far enough, then hand him the Poison before he reaches the exit (see The betrayal) |
 
-Levels 1–4 and The Betrayal are the must-haves (they introduce all three bags and end the story). 5–6 are stretch goals. An **Arrow Hall** level (Shield, plus a hand-off right after) is a further stretch.
+Levels 1–5 and The Betrayal are the must-haves (they teach the basics, introduce all three bags and end the story). 6–7 are stretch goals. Levels 1–3 are built. An **Arrow Hall** level (Shield, plus a hand-off right after) is a further stretch.
 
 ## Level format (Tiled)
 Levels are built in [Tiled](https://www.mapeditor.org/) and exported as **JSON (`.tmj`)**. The game reads them with Python's built-in `json` module, so there's no extra dependency and nothing to break in the `pygbag` web build. Tilesets are saved **embedded** in the map so each level is one file.
@@ -137,14 +157,15 @@ Levels are built in [Tiled](https://www.mapeditor.org/) and exported as **JSON (
 | Layer | Contents |
 |---|---|
 | `floor` | Decorative ground tiles |
-| `walls` | Solid tiles; the Helper can't walk through them |
+| `walls` | Solid tiles; the Helper can't walk through them (dark void counts) |
+| `decor` | Optional props (torches, banners, bones, chests); drawn on top, never solid |
 
 **Object layers**
 | Layer | Object | Notes |
 |---|---|---|
 | `path` | One **polyline** | The Knight's route, from first point to last |
 | `objects` | `helper_start`, `exit` | Point objects (the Knight starts at the first point of his path) |
-| `objects` | `slime`, `locked_door`, `pit`, `rock`, `cracked_wall`, `arrow_trap` | Obstacles on the path; set the Tiled **Class** field to the name |
+| `objects` | `skeleton`, `locked_door`, `rock` (built); `pit`, `cracked_wall`, `arrow_trap` (planned) | Point objects on the path; set the Tiled **Class** field to the name. They snap onto the nearest point of the path |
 | `objects` | `dark_room` | Rectangle; the area that needs the Torch |
 | `objects` | `helper_hazard` | Something that hurts only the Helper (e.g., spike floor) |
 
@@ -155,15 +176,19 @@ Levels are built in [Tiled](https://www.mapeditor.org/) and exported as **JSON (
 | `unlocks_bag` | string | `hauler` (optional; bag unlocked when this level starts) |
 | `gear_pool` | string | `sword,key,key,plank,bomb` |
 | `knight_gear` | string | `sword,key` (what the Knight starts holding; one tool and/or one item) |
+| `tutorial` | string | `first_blood` (optional; coach script id from `game/tutorial.py`) |
+| `pack_tip` | string | `Pack the Sword, then START.` (optional; one line on the Pack screen) |
 | `betrayal` | bool | `true` on the final level only: poisoning the Knight wins, reaching the exit loses |
 
 Bag stats live in code, not in maps, so they can be tuned in one place.
 
 **Rules for level designers**
 - Tile size 16×16, to match the art.
-- Map size fits one screen: 20×15 tiles (320×240 px, shown at 960×720).
+- Maps can be any size. The camera shows 20×15 tiles (320×240 px, at 960×720) and follows the Helper; maps smaller than that are centred.
+- Build levels as several rooms joined by one-tile corridors, and put obstacles in the chokepoints (skeletons in corridor mouths, locked doors in doorways, rubble in tunnels). Obstacles block the Helper too, so a chokepoint really forces the hand-off before it.
 - Draw the Knight's path through the obstacle objects; he handles an obstacle when he reaches it.
-- Files go in `levels/`, named `01_the_slime.tmj`, `02_locked_in.tmj`, and so on; the number sets the order. The final level is `99_the_betrayal.tmj` so it always comes last.
+- `tools/build_levels.py` builds levels 1–3 from ASCII sketches and autotiles the walls (`#` wall, `.` floor, `K`/`H`/`E` starts and exit, `a`–`z` path turns, `S`/`D`/`R` obstacles, symbols for decor). The output can be polished in Tiled, but re-running the script overwrites those files.
+- Files go in `levels/`, named `01_first_blood.tmj`, `02_locked_in.tmj`, and so on; the number sets the order. The final level is `99_the_betrayal.tmj` so it always comes last.
 
 ## Scope plan
 **Day 1: core**
@@ -189,6 +214,7 @@ Bag stats live in code, not in maps, so they can be tuned in one place.
 - **Artist/designer:** 16×16 top-down pixel sprites and tilesets, levels in Tiled (puzzles are the content), dialogue
 
 ## Risks
+- **Can't see the plan on a big map:** hold TAB for the whole map; the off-screen arrow always shows where the Knight is.
 - **Unclear rules:** show the Knight's held gear above his head and the next queue entry in the HUD, show the gear the Helper is holding, and highlight the Knight when you can hand it over.
 - **Hand-offs feel fiddly:** use a generous hand-off range.
 - **Bag choice feels arbitrary:** on the Pack screen, show each bag's slots and extract time, and during planning show how far the Knight walks during one dig with the selected bag (a short bar along his path).

@@ -10,6 +10,8 @@ from dataclasses import dataclass
 
 import pygame
 
+from game.obstacles import RULES, Obstacle
+
 
 @dataclass
 class Level:
@@ -19,6 +21,7 @@ class Level:
     tile_size: int
     floor: list[list[int]]  # [row][col] tile gids, 0 = empty
     wall_tiles: list[list[int]]
+    decor: list[list[int]]  # props drawn over floor and walls; never solid
     walls: list[list[bool]]
     tileset: dict  # first embedded Tiled tileset; "image" is resolved to a path from the project root
     path: list[pygame.Vector2]  # Knight's route in pixels; path[0] is his start
@@ -28,7 +31,9 @@ class Level:
     betrayal: bool  # the final level: poison the Knight before he reaches the exit
     gear_pool: list[str]
     knight_gear: list[str]  # what the Knight holds at the start, outside the bag
-    obstacles: list[dict]  # everything else on the objects layer
+    obstacles: list[Obstacle]  # in the order the Knight reaches them; copy with .fresh() per run
+    tutorial: str | None  # coach script id in game/tutorial.py
+    pack_tip: str  # one-line hint on the Pack screen
 
     @property
     def pixel_width(self):
@@ -67,6 +72,7 @@ def load_level(filename):
 
     floor = grid("floor")
     wall_tiles = grid("walls")
+    decor = grid("decor")
     walls = [[gid != 0 for gid in row] for row in wall_tiles]
 
     tileset = dict(data["tilesets"][0])
@@ -90,8 +96,10 @@ def load_level(filename):
             helper_start = pos
         elif kind == "exit":
             exit_pos = pos
-        else:
-            obstacles.append({"kind": kind, "rect": pygame.Rect(obj["x"], obj["y"], obj["width"], obj["height"])})
+        elif kind in RULES:
+            # Point objects dropped on (or near) the path; snapped onto it.
+            obstacles.append(Obstacle.on_path(kind, pos, path))
+    obstacles.sort(key=lambda o: o.at)
 
     def gear_list(prop):
         return [g.strip() for g in props.get(prop, "").split(",") if g.strip()]
@@ -103,6 +111,7 @@ def load_level(filename):
         tile_size=data["tilewidth"],
         floor=floor,
         wall_tiles=wall_tiles,
+        decor=decor,
         walls=walls,
         tileset=tileset,
         path=path,
@@ -113,6 +122,8 @@ def load_level(filename):
         gear_pool=gear_list("gear_pool"),
         knight_gear=gear_list("knight_gear"),
         obstacles=obstacles,
+        tutorial=props.get("tutorial") or None,
+        pack_tip=props.get("pack_tip", ""),
     )
 
 

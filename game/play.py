@@ -1,14 +1,24 @@
 """The gameplay scene: the Knight walks his path while the Helper digs and hands over gear."""
 
+import math
+from functools import cache
+
 import pygame
 
 from game import ui
 from game.backpack import BAGS, Backpack
 from game.entities import Helper, Knight
-from game.gear import draw_icon
+from game.gear import GEAR, draw_icon
+from game.obstacles import RULES
 from game.scene import Scene
+from game.tutorial import current_tip
 
-WORLD_SCALE = 3  # the world is drawn at native pixel-art size, then scaled up; 320x240 -> 960x720
+WORLD_SCALE = 3  # the world is drawn at native pixel-art size, then scaled up
+VIEW = (320, 240)  # world pixels the camera shows; 960x720 on screen
+CAMERA_EASE = 8  # how quickly the camera catches up with the Helper
+LOCATOR_FRAMES = [f"assets/interface/arrow_{i}.png" for i in range(1, 5)]  # points down
+LOCATOR_FPS = 8
+LOCATOR_MARGIN = 12
 HUD_SIZE = (80, 180)  # side panel on the UI canvas scale (4x), right of the world
 
 PATH_COLOR = (200, 170, 60)
@@ -17,14 +27,16 @@ HIGHLIGHT_COLOR = (120, 220, 255)
 GOLD = (232, 177, 58)
 SLOT_COLOR = (107, 78, 99)
 DIM = 130
+RETRY = "ENTER: retry   ESC: repack"
 BETRAYAL_DELAY = 2.5  # seconds of the Knight lying there before the ending
+DEATH_DELAY = 1.0  # seconds before the "he's dead" banner, so you see what got him
 ICON_FONT = ui.IconFont()
 
 
 def draw_level(surface, level, tiles):
     ts = level.tile_size
     surface.fill((0, 0, 0))
-    for layer in (level.floor, level.wall_tiles):
+    for layer in (level.floor, level.wall_tiles, level.decor):
         for row in range(level.height):
             for col in range(level.width):
                 gid = layer[row][col]
@@ -40,6 +52,11 @@ def draw_level(surface, level, tiles):
     exit_rect = pygame.Rect(0, 0, ts - 3, ts - 3)
     exit_rect.center = level.exit_pos
     pygame.draw.rect(surface, EXIT_COLOR, exit_rect, 2)
+
+
+@cache
+def locator_frames():
+    return [pygame.image.load(path).convert_alpha() for path in LOCATOR_FRAMES]
 
 
 def draw_slot(surface, gear, center, size=12, marked=False):
@@ -63,21 +80,43 @@ class PlayScene(Scene):
         self.tiles = game.tiles[self.level.tileset["image"]]
         self.bag_id = bag_id
         self.picked = picked  # indices into the level's gear pool, in queue order
-        self.world = pygame.Surface((self.level.pixel_width, self.level.pixel_height))
+        map_size = (self.level.pixel_width, self.level.pixel_height)
+        # The map's tiles and path never change, so they're drawn once.
+        self.background = pygame.Surface(map_size)
+        draw_level(self.background, self.level, self.tiles)
+        self.world = pygame.Surface(map_size)
+        self.view = pygame.Surface(VIEW)
         self.world_icon_font = pygame.font.Font(None, 10)
         self.hud = pygame.Surface(HUD_SIZE)
-        world_w = self.level.pixel_width * WORLD_SCALE
-        # The win banner is drawn on a UI-scale overlay covering the world.
-        self.overlay = pygame.Surface((world_w // ui.UI_SCALE, game.screen.get_height() // ui.UI_SCALE),
+        # Banners and coach prompts are drawn on a UI-scale overlay covering the view.
+        view_on_screen = (VIEW[0] * WORLD_SCALE, VIEW[1] * WORLD_SCALE)
+        self.overlay = pygame.Surface((view_on_screen[0] // ui.UI_SCALE, view_on_screen[1] // ui.UI_SCALE),
                                       pygame.SRCALPHA)
+        self.time = 0.0
+        self.map_viewed = False  # has the player looked at the whole map (TAB) yet
 
         gear = [self.level.gear_pool[i] for i in picked]
+        self.obstacles = [o.fresh() for o in self.level.obstacles]
         self.knight = Knight(self.level.path, self.level.knight_gear)
         self.helper = Helper(self.level.helper_start, Backpack(BAGS[bag_id], gear))
         # None while playing; otherwise "won" or "lost", shown as a banner: (title, lines).
         self.outcome = None
         self.banner = ("", [])
         self.death_time = 0.0
+        self.camera = self.camera_target()
+
+    def camera_target(self):
+        """Top-left of the view: centred on the Helper, kept inside the map (or centring a small map)."""
+        target = pygame.Vector2(self.helper.rect.center) - pygame.Vector2(VIEW) / 2
+        for axis, size in enumerate((self.level.pixel_width, self.level.pixel_height)):
+            if size <= VIEW[axis]:
+                target[axis] = (size - VIEW[axis]) / 2
+            else:
+                target[axis] = max(0, min(target[axis], size - VIEW[axis]))
+        return target
+
+    def showing_map(self):
+        return pygame.key.get_pressed()[pygame.K_TAB]
 
     def back_to_item_select(self):
         from game.menus import ItemSelectScene  # menus imports this module too
@@ -118,24 +157,35 @@ class PlayScene(Scene):
 
     def update(self, dt):
         knight = self.knight
+        self.time += dt
+        self.camera += (self.camera_target() - self.camera) * min(1.0, dt * CAMERA_EASE)
+        if self.showing_map():
+            self.map_viewed = True
+        for obstacle in self.obstacles:
+            obstacle.update(dt)
         if self.outcome:
             knight.update(dt)  # keeps his victory/death animation going
             return
-        self.helper.update(dt, pygame.key.get_pressed(), self.level)
-        knight.update(dt)
+        blockers = [o.rect for o in self.obstacles if not o.cleared]
+        self.helper.update(dt, pygame.key.get_pressed(), self.level, blockers)
+        knight.update(dt, self.obstacles)
         if knight.dead:
             self.death_time += dt
-            if self.death_time < BETRAYAL_DELAY:
+            poisoned = knight.death_cause == "poison"
+            if self.death_time < (BETRAYAL_DELAY if poisoned else DEATH_DELAY):
                 return
-            if self.level.betrayal:
+            if poisoned and self.level.betrayal:
                 from game.menus import EndingScene
                 self.game.completed.add(self.level_index)
                 self.game.change_scene(EndingScene(self.game))
+            elif poisoned:
+                self.end("lost", "He's dead.", "That wasn't a health potion.", RETRY)
             else:
-                self.end("lost", "He's dead.", "That wasn't a health potion.", "ENTER: retry")
+                rule = RULES[knight.death_cause]
+                self.end("lost", "He's dead.", rule.death, f"He needed the {GEAR[rule.gear].name}.", RETRY)
         elif knight.reached_exit:
             if self.level.betrayal:
-                self.end("lost", "Too late!", "He took the credit again.", "ENTER: retry")
+                self.end("lost", "Too late!", "He took the credit again.", RETRY)
             else:
                 self.game.completed.add(self.level_index)
                 self.end("won", "Level clear!", "ENTER: continue")
@@ -146,24 +196,66 @@ class PlayScene(Scene):
 
     def draw(self, screen):
         knight, helper = self.knight, self.helper
-        draw_level(self.world, self.level, self.tiles)
+        self.world.blit(self.background, (0, 0))
+        for obstacle in self.obstacles:
+            obstacle.draw(self.world, self.tiles, self.world_icon_font)
         if helper.held and helper.in_range(knight):
             pygame.draw.circle(self.world, HIGHLIGHT_COLOR, knight.pos, 10, 1)
         # Draw whoever's feet are lower on screen last, so they overlap correctly.
         feet = {knight: knight.pos.y + 7, helper: helper.rect.bottom + 1}
         for actor in sorted(feet, key=feet.get):
             actor.draw(self.world, self.world_icon_font)
-        world_size = (self.level.pixel_width * WORLD_SCALE, self.level.pixel_height * WORLD_SCALE)
-        screen.blit(pygame.transform.scale(self.world, world_size), (0, 0))
+        view_on_screen = (VIEW[0] * WORLD_SCALE, VIEW[1] * WORLD_SCALE)
+        showing_map = self.showing_map()
+        if showing_map:
+            self.draw_map(screen.subsurface((0, 0, *view_on_screen)))
+        else:
+            self.view.fill((0, 0, 0))
+            self.view.blit(self.world, (-round(self.camera.x), -round(self.camera.y)))
+            self.draw_locator(self.view)
+            pygame.transform.scale(self.view, view_on_screen, screen.subsurface((0, 0, *view_on_screen)))
 
         self.draw_hud(self.hud)
-        hud_x = world_size[0]
+        hud_x = view_on_screen[0]
         screen.blit(pygame.transform.scale(self.hud, (screen.get_width() - hud_x, screen.get_height())), (hud_x, 0))
 
-        if self.outcome:
+        tip = None if showing_map else current_tip(self)
+        if self.outcome or tip:
             self.overlay.fill((0, 0, 0, 0))
-            self.draw_banner(self.overlay)
+            if self.outcome:
+                self.draw_banner(self.overlay)
+            else:
+                self.draw_tip(self.overlay, tip)
             screen.blit(pygame.transform.scale_by(self.overlay, ui.UI_SCALE), (0, 0))
+
+    def draw_map(self, area):
+        """TAB: the whole map, scaled to fit, for planning on maps bigger than the screen."""
+        area.fill((0, 0, 0))
+        w, h = self.world.get_size()
+        scale = min(area.get_width() / w, area.get_height() / h)
+        size = (round(w * scale), round(h * scale))
+        rect = pygame.Rect((0, 0), size)
+        rect.center = area.get_rect().center
+        area.blit(pygame.transform.scale(self.world, size), rect)
+
+    def draw_locator(self, view):
+        """When the Knight is off screen, an arrow at the edge of the view points to him."""
+        on_view = self.knight.pos - self.camera
+        if pygame.Rect((0, 0), VIEW).inflate(-8, -8).collidepoint(on_view):
+            return
+        centre = pygame.Vector2(VIEW) / 2
+        direction = on_view - centre
+        if direction.length_squared() == 0:
+            return
+        # Walk from the centre toward him until we hit the margin box.
+        half = pygame.Vector2(VIEW[0] / 2 - LOCATOR_MARGIN, VIEW[1] / 2 - LOCATOR_MARGIN)
+        reach = min(half.x / abs(direction.x) if direction.x else math.inf,
+                    half.y / abs(direction.y) if direction.y else math.inf)
+        spot = centre + direction * reach
+        frames = locator_frames()
+        arrow = frames[int(self.time * LOCATOR_FPS) % len(frames)]
+        arrow = pygame.transform.rotate(arrow, math.degrees(math.atan2(direction.x, direction.y)))
+        view.blit(arrow, arrow.get_rect(center=spot))
 
     def draw_hud(self, hud):
         knight, helper = self.knight, self.helper
@@ -192,11 +284,23 @@ class PlayScene(Scene):
             gear = backpack.queue[slot] if slot < len(backpack.queue) else None
             draw_slot(hud, gear, (w // 2 - 18 + col * 18, 114 + row * 18), marked=slot == 0 and gear is not None)
 
-        hints = ["E dig/give", "R restart", "ESC pack"]
+        hints = ["E dig/give", "TAB map", "R restart", "ESC pack"]
         if not knight.walking and not knight.dead and not self.outcome:
-            ui.draw_text(hud, "SPACE go!", (w // 2, 140), "gold", anchor="midtop")
+            hints = ["SPACE go!"] + hints[:-1]  # the one that matters before the run
         for i, hint in enumerate(hints):
-            ui.draw_text(hud, hint, (w // 2, 150 + i * 9), anchor="midtop", alpha=DIM)
+            ready = hint == "SPACE go!"
+            ui.draw_text(hud, hint, (w // 2, 143 + i * 9), "gold" if ready else "cream", anchor="midtop",
+                         alpha=255 if ready else DIM)
+
+    def draw_tip(self, overlay, lines):
+        """A coach prompt at the top of the map."""
+        width = max(len(line) for line in lines) * ui.GLYPH_ADVANCE + 20
+        rect = pygame.Rect(0, 4, max(width, 100), 12 + 10 * len(lines))
+        rect.centerx = overlay.get_width() // 2
+        ui.nine_slice(overlay, "panel9", rect)
+        for i, line in enumerate(lines):
+            ui.draw_text(overlay, line, (rect.centerx, rect.y + 7 + i * 10), "gold" if i == 0 else "cream",
+                         anchor="midtop")
 
     def draw_banner(self, overlay):
         title, lines = self.banner

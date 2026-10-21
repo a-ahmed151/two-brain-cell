@@ -369,6 +369,8 @@ class ItemSelectScene(MenuScene):
             new = BAGS[self.new_bag]
             ui.draw_text(canvas, f"New bag unlocked: {new.name} - {new.slots} slots, {new.extract_time}s dig",
                          (160, 152), "gold", anchor="midtop")
+        elif self.level.pack_tip:
+            ui.draw_text(canvas, self.level.pack_tip, (160, 152), "gold", anchor="midtop")
         ui.draw_text(canvas, "WASD move   ENTER choose   ESC back", (160, 166), anchor="midtop", alpha=DIM)
 
     def draw_bags(self, canvas):

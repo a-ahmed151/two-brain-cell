@@ -11,6 +11,8 @@ KNIGHT_SPEED = 30  # pixels per second
 HELPER_SPEED = 65
 HELPER_SIZE = 9  # collision box, in pixels
 HANDOFF_RANGE = 32  # max distance between Helper and Knight centers for a hand-off
+OBSTACLE_GAP = 12  # the Knight stops this far before an obstacle to deal with it
+USE_TIME = 0.4  # seconds he spends using gear on an obstacle
 
 HELPER_SHEETS = "assets/helper/{size}/helper_{size}.json"  # one sheet per backpack size (Bag.sprite)
 
@@ -79,6 +81,10 @@ class Knight:
         self.walking = False
         self.reached_exit = False
         self.dead = False
+        self.death_cause = None  # obstacle kind, or "poison"
+        self.distance = 0.0  # how far along the path he is
+        self.using = None  # the obstacle he's busy with
+        self.use_left = 0.0
         self.tool = None  # reusable gear, kept until replaced
         self.item = None  # one-use gear
         self.facing = (path[1] - path[0]).normalize()
@@ -91,8 +97,7 @@ class Knight:
         """Put gear in the matching hand. Returns what was in that hand before."""
         if gear == "poison":
             # He trusts the Helper completely and drinks it at once.
-            self.dead = True
-            self.walking = False
+            self.die("poison")
             return None
         if GEAR[gear].hand == TOOL:
             old, self.tool = self.tool, gear
@@ -100,11 +105,47 @@ class Knight:
             old, self.item = self.item, gear
         return old
 
-    def update(self, dt):
+    def die(self, cause):
+        self.dead = True
+        self.death_cause = cause
+        self.walking = False
+
+    def holds(self, gear):
+        return gear in (self.tool, self.item)
+
+    def update(self, dt, obstacles=()):
+        """Walk on, stopping at each obstacle to use the right gear on it (or die trying)."""
         self.anim_time += dt
         if not self.walking or self.reached_exit or self.dead:
             return
+        if self.using:
+            self.use_left -= dt
+            if self.use_left > 0:
+                return
+            self.using.clear()
+            self.using = None
         step = KNIGHT_SPEED * dt
+        ahead = next((o for o in obstacles if not o.cleared), None)
+        if ahead:
+            room = ahead.at - OBSTACLE_GAP - self.distance
+            if room <= step:
+                self._walk(max(0.0, room))
+                self._meet(ahead)
+                return
+        self._walk(step)
+
+    def _meet(self, obstacle):
+        rule = obstacle.rule
+        if not self.holds(rule.gear):
+            self.die(obstacle.kind)
+            return
+        if rule.consumed:
+            self.item = None
+        self.using = obstacle
+        self.use_left = USE_TIME
+
+    def _walk(self, step):
+        self.distance += step
         while step > 0 and self.next_point < len(self.path):
             target = self.path[self.next_point]
             to_target = target - self.pos
@@ -128,7 +169,8 @@ class Knight:
             direction = "left" if self.facing.x < 0 else "right"
         else:
             direction = "up" if self.facing.y < 0 else "down"
-        return f"{'walk' if self.walking else 'idle'}_{direction}"
+        moving = self.walking and not self.using
+        return f"{'walk' if moving else 'idle'}_{direction}"
 
     def draw(self, surface, font):
         name = self.current_animation()
@@ -161,6 +203,7 @@ class Helper:
         self.walk_time = 0.0  # drives the walk animation; 0 while standing still
         self.give_time = 0.0  # time left on the hand-over animation
         self.give_side = "right"
+        self.handed = []  # every piece of gear given to the Knight this run, in order
         self.animation = None
         self.anim_time = 0.0
 
@@ -176,6 +219,7 @@ class Helper:
                 gear, self.held = self.held, None
                 self.give_side = "left" if knight.pos.x < self.rect.centerx else "right"
                 self.give_time = self.animation_length(f"give_{self.give_side}")
+                self.handed.append(gear)
                 old = knight.receive(gear)
                 if old:
                     # Always fits: the gear just handed over freed its slot.
@@ -188,7 +232,8 @@ class Helper:
         frames, fps, _ = helper_animations(self.backpack.bag.sprite)[name]
         return len(frames) / fps
 
-    def update(self, dt, keys, level):
+    def update(self, dt, keys, level, blockers=()):
+        """Move and dig. `blockers` are rects the Helper can't walk into (uncleared obstacles)."""
         self.anim_time += dt
         self.give_time = max(0.0, self.give_time - dt)
         move = pygame.Vector2(
@@ -216,7 +261,7 @@ class Helper:
                 self.rect.x += round(distance.x)
             else:
                 self.rect.y += round(distance.y)
-            if level.rect_hits_wall(self.rect):
+            if level.rect_hits_wall(self.rect) or self.rect.collidelist(blockers) != -1:
                 self.rect = old
 
     def _dig(self, dt):
