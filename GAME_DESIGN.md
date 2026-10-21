@@ -22,7 +22,7 @@ You don't fight. You make sure he's holding the right thing at the right time.
 **Quitting a run:** ESC (or P, or clicking "ESC pause" on the side panel) pauses a fight, with **Resume** and **Quit run**. Between rooms, the Quit run button at the top left (or ESC) asks once more, then quits. Quitting goes back to the main menu.
 
 ## The Knight
-- Targets the **nearest enemy**, walks to it (around walls) and swings on a cooldown (0.8 s).
+- Picks his target by **what he's holding**: the enemy his weapon does the most damage to (Pickaxe → Armored, Torch → Skulls and Vampires, Sword → anything but Armored), and among those, the nearest. With his fists or the Shield every enemy is the same to him, so he takes the nearest. He walks to it (around walls) and swings on a cooldown (0.8 s).
 - **Damage depends on his tool** and the enemy's tags (see Gear). Bare-handed he does 1.
 - **Uses his item by himself** when the moment comes (see Gear).
 - HP carries over between rooms (40 max).

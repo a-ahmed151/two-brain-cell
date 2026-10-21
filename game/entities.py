@@ -186,7 +186,7 @@ class Knight:
                     enemy.hurt(BOMB_DAMAGE)
 
     def update(self, dt, level, enemies=()):
-        """Fight the nearest enemy, or once the room's clear, walk out if told to."""
+        """Fight the enemy his weapon is best against, or once the room's clear, walk out if told to."""
         self.anim_time += dt
         self.flash = max(0.0, self.flash - dt)
         self.lunge = max(0.0, self.lunge - dt)
@@ -208,7 +208,9 @@ class Knight:
         alive = [e for e in enemies if not e.dead]
         if not alive:
             return
-        target = min(alive, key=lambda e: e.pos.distance_squared_to(self.pos))
+        # Go for whatever his weapon hits hardest (a Pickaxe goes for armor, a Torch for
+        # skulls and vampires); among those, the nearest.
+        target = min(alive, key=lambda e: (-self.damage_against(e), e.pos.distance_squared_to(self.pos)))
         reach = KNIGHT_REACH + 4 * (target.type.scale - 1)
         if self.pos.distance_to(target.pos) > reach * 0.8:
             self._walk_to(target.pos, dt, reach * 0.8, level)
