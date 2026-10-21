@@ -14,13 +14,12 @@ class Bag:
     sprite: str  # which Helper sheet in assets/helper/ shows this bag: small, medium or large
 
 
-# Tune here. The player starts with the satchel.
+# Tune here. The player picks one at the start of each run.
 BAGS = {
     "satchel": Bag("Satchel", slots=4, extract_time=0.8, sprite="medium"),
     "hauler": Bag("Hauler", slots=6, extract_time=1.6, sprite="large"),
     "pouch": Bag("Pouch", slots=2, extract_time=0.3, sprite="small"),
 }
-STARTING_BAG = "satchel"
 
 
 class Backpack:

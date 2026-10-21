@@ -1,11 +1,9 @@
-"""The scene manager. Each screen (loading, intro, level select, item select, play)
+"""The scene manager. Each screen (loading, intro, run start, rewards, combat)
 is a Scene; Game runs whichever one is active and holds what lives across them."""
 
 import asyncio
 
 import pygame
-
-from game.backpack import STARTING_BAG
 
 FPS = 60
 SCREEN_SIZE = (1280, 720)  # the UI kit's 320x180 canvas at 4x
@@ -36,22 +34,10 @@ class Game:
         self.running = True
 
         # Filled in by the loading scene.
-        self.levels = []  # in play order
+        self.levels = []  # the arena rooms; each room of a run uses one of them
         self.tiles = {}  # tileset image path -> {gid: tile surface}
 
-        # Progress for this session.
-        self.completed = set()  # indices into self.levels
-        self.unlocked_bags = [STARTING_BAG]
-
-    def level_available(self, index):
-        return index == 0 or index - 1 in self.completed
-
-    def next_level(self):
-        """The first level not completed yet (or the last one, once all are done)."""
-        for i in range(len(self.levels)):
-            if i not in self.completed:
-                return i
-        return len(self.levels) - 1
+        self.current_run = None  # the RunState in progress (game/run.py)
 
     def change_scene(self, scene):
         self.scene = scene

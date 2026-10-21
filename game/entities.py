@@ -5,14 +5,27 @@ from functools import cache
 
 import pygame
 
-from game.gear import GEAR, TOOL, draw_icon
+from game.enemies import move_body
+from game.gear import FIST_DAMAGE, GEAR, TOOL, draw_icon
 
 KNIGHT_SPEED = 30  # pixels per second
+KNIGHT_SIZE = 9  # collision box
+KNIGHT_MAX_HP = 40
+KNIGHT_REACH = 15  # centre to centre, for his swings
+ATTACK_TIME = 0.8  # seconds between swings
+LUNGE_TIME = 0.15  # he leans into each swing for this long
+HURT_FLASH = 0.15
+POTION_HEAL = 15
+POTION_AT = 0.4  # he drinks a held Potion once he's below this much of his HP
+BOMB_DAMAGE = 8
+BOMB_RADIUS = 36
+BOMB_CROWD = 2  # he throws a held Bomb once this many enemies are in range (or the boss is)
+
 HELPER_SPEED = 65
 HELPER_SIZE = 9  # collision box, in pixels
+HELPER_HP = 4  # hearts; every hit takes one
+HELPER_INVULNERABLE = 1.0  # seconds after a hit
 HANDOFF_RANGE = 32  # max distance between Helper and Knight centers for a hand-off
-OBSTACLE_GAP = 12  # the Knight stops this far before an obstacle to deal with it
-USE_TIME = 0.4  # seconds he spends using gear on an obstacle
 
 HELPER_SHEETS = "assets/helper/{size}/helper_{size}.json"  # one sheet per backpack size (Bag.sprite)
 
@@ -71,23 +84,41 @@ def knight_frame(name, time):
     return frames[int(time * fps) % len(frames)]
 
 
-class Knight:
-    """Walks the level's path from start to end. Drawn from assets/knight.png."""
+class Popup:
+    """A short line of text floating up from where something happened (damage, heals)."""
 
-    def __init__(self, path, gear=()):
-        self.path = path
-        self.pos = pygame.Vector2(path[0])
-        self.next_point = 1
-        self.walking = False
+    LIFE = 0.8
+
+    def __init__(self, pos, text, color):
+        self.pos = pygame.Vector2(pos)
+        self.text = text
+        self.color = color
+        self.age = 0.0
+
+
+class Knight:
+    """Fights whatever is nearest with whatever he's holding, and uses his item by himself
+    when the moment comes. Drawn from assets/knight.png."""
+
+    def __init__(self, pos, hp=KNIGHT_MAX_HP, max_hp=KNIGHT_MAX_HP, gear=()):
+        self.pos = pygame.Vector2(pos)
+        self.hp = hp
+        self.max_hp = max_hp
+        self.fighting = False  # SPACE sends him in
+        self.leaving = None  # once the room is clear: where he walks to (the boss room's exit)
         self.reached_exit = False
         self.dead = False
-        self.death_cause = None  # obstacle kind, or "poison"
-        self.distance = 0.0  # how far along the path he is
-        self.using = None  # the obstacle he's busy with
-        self.use_left = 0.0
+        self.death_cause = None  # "enemy" or "poison"
         self.tool = None  # reusable gear, kept until replaced
-        self.item = None  # one-use gear
-        self.facing = (path[1] - path[0]).normalize()
+        self.item = None  # one-use gear, used by himself when the moment comes
+        self.swing = 0.0  # cooldown until his next swing
+        self.lunge = 0.0
+        self.lunge_dir = pygame.Vector2()
+        self.flash = 0.0
+        self.facing = pygame.Vector2(1, 0)
+        self.moving = False
+        self.popups = []  # read and drawn by the scene
+        self.chest_opened = False  # set when he opens the room's chest with a Key
         self.animation = None
         self.anim_time = 0.0
         for piece in gear:
@@ -108,57 +139,110 @@ class Knight:
     def die(self, cause):
         self.dead = True
         self.death_cause = cause
-        self.walking = False
+        self.fighting = False
 
-    def holds(self, gear):
-        return gear in (self.tool, self.item)
+    def popup(self, text, color, pos=None):
+        self.popups.append(Popup(pos if pos is not None else self.pos + (0, -16), text, color))
 
-    def update(self, dt, obstacles=()):
-        """Walk on, stopping at each obstacle to use the right gear on it (or die trying)."""
-        self.anim_time += dt
-        if not self.walking or self.reached_exit or self.dead:
-            return
-        if self.using:
-            self.use_left -= dt
-            if self.use_left > 0:
-                return
-            self.using.clear()
-            self.using = None
-        step = KNIGHT_SPEED * dt
-        ahead = next((o for o in obstacles if not o.cleared), None)
-        if ahead:
-            room = ahead.at - OBSTACLE_GAP - self.distance
-            if room <= step:
-                self._walk(max(0.0, room))
-                self._meet(ahead)
-                return
-        self._walk(step)
+    def hurt(self, amount):
+        """Take a hit (softened by a Shield). Returns the damage actually dealt."""
+        if self.dead:
+            return 0
+        guard = GEAR[self.tool].guard if self.tool else 1.0
+        dealt = max(1, round(amount * guard))
+        self.hp -= dealt
+        self.flash = HURT_FLASH
+        self.popup(f"-{dealt}", (240, 90, 90))
+        if self.hp <= 0:
+            self.hp = 0
+            self.die("enemy")
+            self.popup("Tell my mother... I was right...", (230, 230, 230), self.pos + (0, -26))
+        return dealt
 
-    def _meet(self, obstacle):
-        rule = obstacle.rule
-        if not self.holds(rule.gear):
-            self.die(obstacle.kind)
-            return
-        if rule.consumed:
+    def heal(self, amount):
+        healed = min(amount, self.max_hp - self.hp)
+        self.hp += healed
+        self.popup(f"+{healed}", (110, 220, 120))
+
+    def damage_against(self, enemy):
+        if not self.tool:
+            return FIST_DAMAGE
+        gear = GEAR[self.tool]
+        multiplier = 1.0
+        for tag in enemy.type.tags:
+            multiplier *= gear.bonus.get(tag, 1.0)
+        return max(1, round(gear.damage * multiplier))
+
+    def use_item(self, enemies, chest):
+        """The Knight uses his item when it makes sense, all by himself."""
+        item = self.item
+        if item == "potion" and self.hp <= self.max_hp * POTION_AT:
             self.item = None
-        self.using = obstacle
-        self.use_left = USE_TIME
+            self.heal(POTION_HEAL)
+        elif item == "bomb" and self.fighting:
+            near = [e for e in enemies if not e.dead and e.pos.distance_to(self.pos) <= BOMB_RADIUS * e.type.scale]
+            if len(near) >= BOMB_CROWD or any(e.type.scale > 1 for e in near):
+                self.item = None
+                self.popup("BOOM!", (255, 200, 80))
+                for enemy in near:
+                    enemy.hurt(BOMB_DAMAGE)
+        elif item == "key" and chest is not None and not self.chest_opened:
+            self.item = None
+            self.chest_opened = True
+            self.popup("Loot!", (232, 177, 58), chest + (0, -12))
 
-    def _walk(self, step):
-        self.distance += step
-        while step > 0 and self.next_point < len(self.path):
-            target = self.path[self.next_point]
-            to_target = target - self.pos
-            if to_target.length() <= step:
-                self.pos = pygame.Vector2(target)
-                step -= to_target.length()
-                self.next_point += 1
-            else:
-                self.facing = to_target.normalize()
-                self.pos += self.facing * step
-                step = 0
-        if self.next_point >= len(self.path):
-            self.reached_exit = True
+    def update(self, dt, level, enemies=(), chest=None):
+        """Fight the nearest enemy, or once the room's clear, walk out if told to."""
+        self.anim_time += dt
+        self.flash = max(0.0, self.flash - dt)
+        self.lunge = max(0.0, self.lunge - dt)
+        self.swing = max(0.0, self.swing - dt)
+        for popup in self.popups:
+            popup.age += dt
+            popup.pos.y -= 14 * dt
+        self.popups = [p for p in self.popups if p.age < Popup.LIFE]
+        self.moving = False
+        if self.dead or self.reached_exit:
+            return
+        self.use_item(enemies, chest)
+        if self.leaving is not None:
+            if self._walk_to(self.leaving, dt, 2, level):
+                self.reached_exit = True
+            return
+        if not self.fighting:
+            return
+        alive = [e for e in enemies if not e.dead]
+        if not alive:
+            return
+        target = min(alive, key=lambda e: e.pos.distance_squared_to(self.pos))
+        reach = KNIGHT_REACH + 4 * (target.type.scale - 1)
+        if self.pos.distance_to(target.pos) > reach * 0.8:
+            self._walk_to(target.pos, dt, reach * 0.8, level)
+        if self.pos.distance_to(target.pos) <= reach and self.swing == 0:
+            self.swing = ATTACK_TIME
+            self.lunge = LUNGE_TIME
+            to_target = target.pos - self.pos
+            self.lunge_dir = to_target.normalize() if to_target.length_squared() else pygame.Vector2()
+            if to_target.length_squared():
+                self.facing = self.lunge_dir
+            damage = self.damage_against(target)
+            target.hurt(damage)
+            self.popup(str(damage), (255, 255, 255), target.pos + (0, -12 * target.type.scale))
+
+    def _walk_to(self, point, dt, stop, level=None):
+        """Step toward `point`; True once within `stop` pixels of it."""
+        to_point = point - self.pos
+        if to_point.length() <= stop:
+            return True
+        self.moving = True
+        if level:
+            heading = level.route(self.pos, point, KNIGHT_SIZE) - self.pos
+            if heading.length_squared():
+                to_point = heading
+        self.facing = to_point.normalize()
+        step = self.facing * min(KNIGHT_SPEED * dt, to_point.length())
+        self.pos = move_body(self.pos, step, KNIGHT_SIZE, level) if level else self.pos + step
+        return False
 
     def current_animation(self):
         if self.dead:
@@ -169,16 +253,22 @@ class Knight:
             direction = "left" if self.facing.x < 0 else "right"
         else:
             direction = "up" if self.facing.y < 0 else "down"
-        moving = self.walking and not self.using
-        return f"{'walk' if moving else 'idle'}_{direction}"
+        return f"{'walk' if self.moving else 'idle'}_{direction}"
+
+    @property
+    def feet(self):
+        return self.pos.y + 7
 
     def draw(self, surface, font):
         name = self.current_animation()
         if name != self.animation:
             self.animation, self.anim_time = name, 0.0
         image = knight_frame(name, self.anim_time)
-        # He walks the path with his feet a little below it, so he looks centered on the tile.
-        sprite = image.get_rect(midbottom=(self.pos.x, self.pos.y + 7))
+        if self.flash and not self.dead:
+            image = image.copy()
+            image.fill((255, 90, 90, 255), special_flags=pygame.BLEND_RGBA_MULT)
+        lean = self.lunge_dir * 4 * (self.lunge / LUNGE_TIME) if self.lunge else pygame.Vector2()
+        sprite = image.get_rect(midbottom=(self.pos.x + lean.x, self.feet + lean.y))
         surface.blit(image, sprite)
 
         if self.dead:
@@ -203,9 +293,26 @@ class Helper:
         self.walk_time = 0.0  # drives the walk animation; 0 while standing still
         self.give_time = 0.0  # time left on the hand-over animation
         self.give_side = "right"
+        self.hurt_time = 0.0
         self.handed = []  # every piece of gear given to the Knight this run, in order
+        self.hp = HELPER_HP
+        self.invulnerable = 0.0
         self.animation = None
         self.anim_time = 0.0
+
+    @property
+    def alive(self):
+        return self.hp > 0
+
+    def hurt(self, amount):
+        """Every hit takes one heart, then a moment of safety. Returns the damage dealt."""
+        if not self.alive or self.invulnerable > 0:
+            return 0
+        self.hp -= 1
+        self.invulnerable = HELPER_INVULNERABLE
+        self.digging = False  # getting hit knocks the gear back into the bag
+        self.hurt_time = self.animation_length("hurt")
+        return 1
 
     def in_range(self, knight):
         return pygame.Vector2(self.rect.center).distance_to(knight.pos) <= HANDOFF_RANGE
@@ -214,8 +321,10 @@ class Helper:
         """Action button. Empty-handed: start digging out the next gear (anywhere).
         Holding gear: hand it to the Knight if he's in range. Whatever he was
         holding in that hand goes back to the end of the queue."""
+        if not self.alive:
+            return
         if self.held:
-            if self.in_range(knight):
+            if self.in_range(knight) and not knight.dead:
                 gear, self.held = self.held, None
                 self.give_side = "left" if knight.pos.x < self.rect.centerx else "right"
                 self.give_time = self.animation_length(f"give_{self.give_side}")
@@ -233,9 +342,13 @@ class Helper:
         return len(frames) / fps
 
     def update(self, dt, keys, level, blockers=()):
-        """Move and dig. `blockers` are rects the Helper can't walk into (uncleared obstacles)."""
+        """Move and dig. `blockers` are rects the Helper can't walk into."""
         self.anim_time += dt
         self.give_time = max(0.0, self.give_time - dt)
+        self.hurt_time = max(0.0, self.hurt_time - dt)
+        self.invulnerable = max(0.0, self.invulnerable - dt)
+        if not self.alive:
+            return
         move = pygame.Vector2(
             (keys[pygame.K_d] or keys[pygame.K_RIGHT]) - (keys[pygame.K_a] or keys[pygame.K_LEFT]),
             (keys[pygame.K_s] or keys[pygame.K_DOWN]) - (keys[pygame.K_w] or keys[pygame.K_UP]),
@@ -276,6 +389,10 @@ class Helper:
         return "up" if self.facing.y < 0 else "down"
 
     def current_animation(self):
+        if not self.alive:
+            return "death"
+        if self.hurt_time > 0:
+            return "hurt"
         if self.digging:
             return "dig"
         if self.walk_time > 0:
@@ -298,6 +415,9 @@ class Helper:
         else:
             time = self.anim_time
         image = helper_frame(size, name, time)
+        if self.invulnerable and self.alive and int(self.invulnerable * 12) % 2:
+            image = image.copy()
+            image.set_alpha(110)  # blinking while safe after a hit
         # Sprites are anchored at the feet (bottom-centre); the collision box is the feet.
         sprite = image.get_rect(midbottom=(self.rect.centerx, self.rect.bottom + 1))
         surface.blit(image, sprite)

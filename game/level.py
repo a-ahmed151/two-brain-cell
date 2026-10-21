@@ -1,16 +1,14 @@
-"""Loads levels made in Tiled and exported as JSON (.tmj).
+"""Loads arena rooms made in Tiled and exported as JSON (.tmj).
 
-See the "Level format (Tiled)" section in GAME_DESIGN.md for the layer and
-object conventions.
+The arenas are built by tools/build_levels.py; see its docstring for the markers.
 """
 
 import json
 import os
+from collections import deque
 from dataclasses import dataclass
 
 import pygame
-
-from game.obstacles import RULES, Obstacle
 
 
 @dataclass
@@ -24,16 +22,11 @@ class Level:
     decor: list[list[int]]  # props drawn over floor and walls; never solid
     walls: list[list[bool]]
     tileset: dict  # first embedded Tiled tileset; "image" is resolved to a path from the project root
-    path: list[pygame.Vector2]  # Knight's route in pixels; path[0] is his start
+    knight_start: pygame.Vector2
     helper_start: pygame.Vector2
-    exit_pos: pygame.Vector2
-    unlocks_bag: str | None  # bag the player gets when this level starts
-    betrayal: bool  # the final level: poison the Knight before he reaches the exit
-    gear_pool: list[str]
-    knight_gear: list[str]  # what the Knight holds at the start, outside the bag
-    obstacles: list[Obstacle]  # in the order the Knight reaches them; copy with .fresh() per run
-    tutorial: str | None  # coach script id in game/tutorial.py
-    pack_tip: str  # one-line hint on the Pack screen
+    exit_pos: pygame.Vector2  # the door he leaves through once the room is clear
+    spawns: list[pygame.Vector2]  # where enemies appear
+    chest: pygame.Vector2 | None  # opened with a Key for an extra reward
 
     @property
     def pixel_width(self):
@@ -52,6 +45,45 @@ class Level:
                 if self.walls[row][col]:
                     return True
         return False
+
+    def clear_line(self, a, b, size):
+        """Can a square body of `size` slide straight from a to b without touching a wall?"""
+        a, b = pygame.Vector2(a), pygame.Vector2(b)
+        steps = max(1, int(a.distance_to(b) // 4))
+        rect = pygame.Rect(0, 0, size, size)
+        for i in range(steps + 1):
+            rect.center = a.lerp(b, i / steps)
+            if self.rect_hits_wall(rect):
+                return False
+        return True
+
+    def route(self, start, goal, size):
+        """Where to head next to get from start to goal around the walls: the goal itself
+        when the way is clear, otherwise the next tile on a shortest path over the floor."""
+        if self.clear_line(start, goal, size):
+            return pygame.Vector2(goal)
+        ts = self.tile_size
+        first = (int(start[0] // ts), int(start[1] // ts))
+        last = (int(goal[0] // ts), int(goal[1] // ts))
+        came_from = {last: None}  # searched backwards from the goal, so each cell knows its next step
+        frontier = deque([last])
+        while frontier:
+            x, y = frontier.popleft()
+            if (x, y) == first:
+                break
+            for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)):
+                nx, ny = x + dx, y + dy
+                if (nx, ny) in came_from or not (0 <= nx < self.width and 0 <= ny < self.height):
+                    continue
+                # No cutting corners past a wall.
+                if self.walls[ny][nx] or self.walls[y][nx] or self.walls[ny][x]:
+                    continue
+                came_from[(nx, ny)] = (x, y)
+                frontier.append((nx, ny))
+        step = came_from.get(first)
+        if step is None:
+            return pygame.Vector2(goal)  # no way round; push on and slide
+        return pygame.Vector2(step[0] * ts + ts / 2, step[1] * ts + ts / 2)
 
 
 def load_level(filename):
@@ -78,31 +110,14 @@ def load_level(filename):
     tileset = dict(data["tilesets"][0])
     tileset["image"] = os.path.normpath(os.path.join(os.path.dirname(filename), tileset["image"]))
 
-    path = []
-    for obj in layers["path"]["objects"]:
-        if "polyline" in obj:
-            path = [pygame.Vector2(obj["x"] + p["x"], obj["y"] + p["y"]) for p in obj["polyline"]]
-            break
-    if len(path) < 2:
-        raise ValueError(f"{filename}: the 'path' layer needs a polyline with at least 2 points")
-
-    helper_start = exit_pos = None
-    obstacles = []
+    points = {}
     for obj in layers["objects"]["objects"]:
         # Tiled 1.9 saved the Class field as "class"; other versions use "type".
         kind = obj.get("type") or obj.get("class", "")
-        pos = pygame.Vector2(obj["x"], obj["y"])
-        if kind == "helper_start":
-            helper_start = pos
-        elif kind == "exit":
-            exit_pos = pos
-        elif kind in RULES:
-            # Point objects dropped on (or near) the path; snapped onto it.
-            obstacles.append(Obstacle.on_path(kind, pos, path))
-    obstacles.sort(key=lambda o: o.at)
-
-    def gear_list(prop):
-        return [g.strip() for g in props.get(prop, "").split(",") if g.strip()]
+        points.setdefault(kind, []).append(pygame.Vector2(obj["x"], obj["y"]))
+    for required in ("knight_start", "helper_start", "exit", "spawn"):
+        if required not in points:
+            raise ValueError(f"{filename}: needs a '{required}' object")
 
     return Level(
         name=props.get("name", "Untitled"),
@@ -114,16 +129,11 @@ def load_level(filename):
         decor=decor,
         walls=walls,
         tileset=tileset,
-        path=path,
-        helper_start=helper_start or pygame.Vector2(path[0]),
-        exit_pos=exit_pos or pygame.Vector2(path[-1]),
-        unlocks_bag=props.get("unlocks_bag") or None,
-        betrayal=bool(props.get("betrayal", False)),
-        gear_pool=gear_list("gear_pool"),
-        knight_gear=gear_list("knight_gear"),
-        obstacles=obstacles,
-        tutorial=props.get("tutorial") or None,
-        pack_tip=props.get("pack_tip", ""),
+        knight_start=points["knight_start"][0],
+        helper_start=points["helper_start"][0],
+        exit_pos=points["exit"][0],
+        spawns=points["spawn"],
+        chest=points.get("chest", [None])[0],
     )
 
 
