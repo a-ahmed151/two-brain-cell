@@ -22,7 +22,7 @@ You don't fight. You make sure he's holding the right thing at the right time.
 All the lines live in `game/story.py`. The font has letters, digits and `:%!?-/.',<>` only.
 
 ## A run
-0. **Levels** (main menu) lets you start a run at any room, the boss, or straight into the Trial: pick a door, pick a bag, and the run carries on from there with just the bag's starting kit. **Play** starts at room 1.
+0. **Levels** (main menu) lets you start a run at any room, the boss, or straight into the Trial: pick a door, pick a bag, then **pack any gear you like** to test that room: the first Get ready screen (or the Trial's riddles screen) has a row of every piece of gear. Pick a slot (bag or his hands) and then gear to put it there, or just gear to add it to the end of the bag; **Empty** clears the chosen slot, **Add slot** grows the bag (up to 12). After that the run carries on as normal. **Play** starts at room 1.
 1. **Pick a bag** (Satchel, Hauler or Pouch). Each starts with its own kit; the Knight always starts holding the Sword. Then **get ready** for room 1 (see step 5). Before room 1, a short **intro** plays: the Knight barges into a room where the Helper is waiting, they "talk" (he talks; the Helper's replies are actions), and they walk out into room 1 together. ENTER moves the dialogue on; ESC or Skip skips it (`game/cutscene.py`).
 2. **8 rooms, then the boss.** Each room is one screen with a random arena and a random enemy mix for its stage.
 3. **Before each fight** the room is frozen behind an overlay showing its enemies (picture, count and the gear that beats each one) and advice ("Armor: the Sword is weak. Pickaxe!"). Nothing moves until **SPACE**.

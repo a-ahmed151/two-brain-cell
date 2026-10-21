@@ -306,7 +306,7 @@ class RoomSelectScene(MenuScene):
         self.doors = [(w["x"], w["y"]) for w in ui.layout("levels")["widgets"] if w["type"] == "level"]
 
     def choose(self, index):
-        self.game.change_scene(RunStartScene(self.game, self.CHOICES[index]))
+        self.game.change_scene(RunStartScene(self.game, self.CHOICES[index], testing=True))
 
     def on_hover(self, key):
         if key != "back":
@@ -367,7 +367,7 @@ class RoomSelectScene(MenuScene):
         choice = self.CHOICES[self.selected]
         ui.draw_text(canvas, room_label(choice), (160, 131), "gold", anchor="midtop")
         ui.draw_text(canvas, self.describe(choice), (160, 141), anchor="midtop")
-        ui.draw_text(canvas, "You start with just your bag's kit.", (160, 158), anchor="midtop", alpha=DIM)
+        ui.draw_text(canvas, "Then pack any gear you like, to test it.", (160, 158), anchor="midtop", alpha=DIM)
         ui.draw_text(canvas, "WASD choose   ENTER go   ESC back", (160, 170), anchor="midtop", alpha=DIM)
 
 
@@ -395,11 +395,12 @@ class RunStartScene(MenuScene):
         "pouch": "Fast dig. Tiny.",
     }
 
-    def __init__(self, game, start_room=0):
+    def __init__(self, game, start_room=0, testing=False):
         super().__init__(game)
         self.bags = list(BAGS)
         self.selected = 0
         self.start_room = start_room  # from the Levels screen: a room index, or "trial"
+        self.testing = testing  # from the Levels screen: the first screen lets you pack any gear
 
     def start(self):
         bag_id = self.bags[self.selected]
@@ -409,14 +410,14 @@ class RunStartScene(MenuScene):
             run.room = TRIAL_ROOM
             run.trial_offered = True
             lend_trial_pack(run)
-            self.game.change_scene(TrialPrepScene(self.game))
+            self.game.change_scene(TrialPrepScene(self.game, testing=self.testing))
             return
         run.room = self.start_room
         run.trial_offered = self.start_room >= TRIAL_ROOM  # it's offered on the way to room 8
-        self.game.change_scene(RewardScene(self.game, picks=0))
+        self.game.change_scene(RewardScene(self.game, picks=0, testing=self.testing))
 
     def back(self):
-        if self.start_room:
+        if self.testing:
             self.game.change_scene(RoomSelectScene(self.game, self.start_room))
         else:
             self.game.change_scene(IntroScene(self.game))
@@ -448,7 +449,7 @@ class RunStartScene(MenuScene):
         ui.draw_text(canvas, "Pick a bag", (160, 15), "gold", scale=2, anchor="center")
         back = canvas.blit(ui.sprite(f"icon_back_{self.state('back', False)}"), (6, 6))
         self.hotspots.add(back, "back")
-        if self.start_room:
+        if self.testing:
             where = room_label(self.start_room)
             ui.draw_text(canvas, f"Starting at: {where}", (160, 27), "gold", anchor="midtop")
         else:
@@ -492,6 +493,8 @@ class RewardScene(MenuScene):
     a picked card asks which gear to throw out for it.
 
     With no picks and no blessing it's just the "get ready" screen (before room 1).
+    With testing=True (a run started from the Levels screen) it also has a row of every
+    piece of gear: put any of it in any slot, empty slots, or add slots, to try a room out.
     """
 
     CARD_W, CARD_H, CARD_GAP, CARD_Y = 92, 58, 8, 30
@@ -505,11 +508,15 @@ class RewardScene(MenuScene):
         ("dig", "Quick hands", "Dig 25% faster."),
     ]
     PRIEST = "assets/Character_animation/priests_idle/priest{}/v1/priest{}_v1_1.png"
+    PALETTE = ["sword", "pickaxe", "torch", "shield", "potion", "bomb", "key", "empty", "slot"]
+    PALETTE_Y = 58
+    MAX_SLOTS = 12  # testing: any more and the bag runs into his hands on screen
 
-    def __init__(self, game, picks=1, shrine=False):
+    def __init__(self, game, picks=1, shrine=False, testing=False):
         super().__init__(game)
         self.run = game.current_run
         self.shrine = shrine
+        self.testing = testing
         self.picks = picks
         if shrine:
             self.cards = [b[0] for b in self.BLESSINGS]
@@ -518,7 +525,7 @@ class RewardScene(MenuScene):
         # Taken card -> how to undo it: for gear, what it replaced in a full bag (or
         # None); for a blessing, the run's HP and bag before it.
         self.taken = {}
-        self.section = "cards" if self.cards else "slots"
+        self.section = "cards" if self.cards else ("palette" if testing else "slots")
         self.cursor = 0  # in the cards or the slots, whichever is focused
         self.grabbed = None  # slot waiting for a second slot to swap with
         self.pending = None  # a card waiting for a bag slot to replace
@@ -626,23 +633,57 @@ class RewardScene(MenuScene):
             self.swap(self.slots[self.grabbed], slot)
             self.grabbed = None
 
-    def swap(self, a, b):
-        first, second = self.gear_at(a), self.gear_at(b)
-        for slot, gear in ((a, second), (b, first)):
-            if slot[0] == "hand" and gear and GEAR[gear].helper_only:
-                self.say(f"The {GEAR[gear].name} is for you, not him.")
-                return
-            if slot[0] == "hand" and gear and GEAR[gear].hand != slot[1]:
-                self.say(f"Only {slot[1]}s go in his {slot[1]} hand.")
-                return
-        # Lay the bag out slot by slot, swap, then close up the gaps.
+    def fits(self, slot, gear):
+        """Can `gear` (or nothing) go in `slot`? Says why not."""
+        if slot[0] == "hand" and gear and GEAR[gear].helper_only:
+            self.say(f"The {GEAR[gear].name} is for you, not him.")
+            return False
+        if slot[0] == "hand" and gear and GEAR[gear].hand != slot[1]:
+            self.say(f"Only {slot[1]}s go in his {slot[1]} hand.")
+            return False
+        return True
+
+    def place(self, *changes):
+        """Put gear (or None) in slots: (slot, gear) pairs. Lays the bag out slot by slot,
+        then closes up the gaps."""
         bag = self.queue + [None] * max(0, self.run.backpack.bag.slots - len(self.queue))
-        for slot, gear in ((a, second), (b, first)):
+        for slot, gear in changes:
             if slot[0] == "hand":
                 self.run.hands[slot[1]] = gear
             else:
                 bag[slot[1]] = gear
         self.queue[:] = [g for g in bag if g]
+
+    def swap(self, a, b):
+        first, second = self.gear_at(a), self.gear_at(b)
+        if self.fits(a, second) and self.fits(b, first):
+            self.place((a, second), (b, first))
+
+    # --- testing: pack anything ---
+
+    def choose_palette(self, index):
+        """Gear: into the chosen slot, or else the end of the bag. Empty: clears the chosen
+        slot. Add slot: one more bag slot."""
+        entry = self.PALETTE[index]
+        backpack = self.run.backpack
+        if entry == "slot":
+            if backpack.bag.slots >= self.MAX_SLOTS:
+                self.say("That's plenty of slots.")
+            else:
+                self.run.bigger_bag()
+            return
+        if self.grabbed is None:
+            if entry == "empty":
+                self.say("Pick a slot first, then Empty.")
+            elif backpack.full:
+                self.say("Bag full. Pick a slot, then gear.")
+            else:
+                backpack.add(entry)
+            return
+        slot, gear = self.slots[self.grabbed], None if entry == "empty" else entry
+        if self.fits(slot, gear):
+            self.place((slot, gear))
+            self.grabbed = None
 
     # --- input ---
 
@@ -654,11 +695,11 @@ class RewardScene(MenuScene):
         self.game.change_scene(CombatScene(self.game))
 
     def sections(self):
-        return (["cards"] if self.cards else []) + ["slots", "go"]
+        return (["cards"] if self.cards else []) + (["palette"] if self.testing else []) + ["slots", "go"]
 
     def on_hover(self, key):
         kind, value = key
-        if kind in ("cards", "slots"):
+        if kind in ("cards", "palette", "slots"):
             self.section, self.cursor = kind, value
         elif kind == "go":
             self.section = "go"
@@ -678,6 +719,8 @@ class RewardScene(MenuScene):
             self.quit_button()
         elif kind == "cards":
             self.choose_card(value)
+        elif kind == "palette":
+            self.choose_palette(value)
         elif kind == "slots":
             self.choose_slot(value)
         elif kind == "go":
@@ -699,11 +742,13 @@ class RewardScene(MenuScene):
         elif key in LEFT_KEYS:
             self.cursor = max(0, self.cursor - 1)
         elif key in RIGHT_KEYS:
-            count = len(self.cards) if self.section == "cards" else len(self.slots)
+            count = {"cards": len(self.cards), "palette": len(self.PALETTE)}.get(self.section, len(self.slots))
             self.cursor = min(count - 1, self.cursor + 1)
         elif key in CONFIRM_KEYS:
             if self.section == "cards":
                 self.choose_card(self.cursor)
+            elif self.section == "palette":
+                self.choose_palette(self.cursor)
             elif self.section == "slots":
                 self.choose_slot(self.cursor)
             else:
@@ -730,6 +775,8 @@ class RewardScene(MenuScene):
         ui.draw_text(canvas, "Quit run", (3, quit_rect.bottom + 1), alpha=255 if self.quitting else DIM)
         if self.cards:
             self.draw_cards(canvas)
+        elif self.testing:
+            self.draw_palette(canvas)
         else:
             ui.draw_text(canvas, "Sort the bag and choose what he holds.", (160, 50), anchor="midtop")
             ui.draw_text(canvas, "The front of the bag is dug out first.", (160, 62), anchor="midtop", alpha=DIM)
@@ -745,7 +792,7 @@ class RewardScene(MenuScene):
         elif self.pending is not None:
             message = "Bag full! Pick gear to throw out."
         elif self.grabbed is not None:
-            message = "Now pick where it goes."
+            message = "Now pick gear, or where it goes." if self.testing else "Now pick where it goes."
         elif self.picks > 0:
             message = "Choose a card, or skip with Go."
         elif self.taken:
@@ -780,6 +827,34 @@ class RewardScene(MenuScene):
                 gear = GEAR[card]
                 draw_card(canvas, rect, self.state(key, False), taken, gear.name, gear.blurb, icon=card, dim=dim)
             if focused or self.pending == i:
+                pygame.draw.rect(canvas, GOLD, rect.inflate(4, 4), 1)
+            self.hotspots.add(rect, key)
+
+    def palette_rects(self):
+        """Where each palette entry sits: gear icons, then the Empty and Add slot buttons."""
+        widths = [16] * (len(self.PALETTE) - 2) + [36, 50]
+        x = 160 - (sum(widths) + 4 * (len(widths) - 1)) // 2
+        rects = []
+        for w in widths:
+            rects.append(pygame.Rect(x, self.PALETTE_Y, w, 15))
+            x += w + 4
+        return rects
+
+    def draw_palette(self, canvas, header=True):
+        if header:
+            ui.draw_text(canvas, "Testing: pack any gear you like.", (160, self.PALETTE_Y - 24), "gold",
+                         anchor="midtop")
+            ui.draw_text(canvas, "Pick a slot, then gear, or just gear.", (160, self.PALETTE_Y - 14),
+                         anchor="midtop", alpha=DIM + 60)
+        for i, (entry, rect) in enumerate(zip(self.PALETTE, self.palette_rects())):
+            key = ("palette", i)
+            focused = self.section == "palette" and self.cursor == i
+            if entry in GEAR:
+                ui.nine_slice(canvas, f"button9_stone_{self.state(key, focused)}", rect)
+                draw_icon(canvas, ICON_FONT, entry, rect.center, size=12)
+            else:
+                ui.button(canvas, rect, "Empty" if entry == "empty" else "Add slot", "stone", self.state(key, focused))
+            if focused:
                 pygame.draw.rect(canvas, GOLD, rect.inflate(4, 4), 1)
             self.hotspots.add(rect, key)
 

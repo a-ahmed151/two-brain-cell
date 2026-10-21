@@ -164,8 +164,9 @@ class TrialOfferScene(MenuScene):
 class TrialPrepScene(RewardScene):
     """Read the four riddles and pack the lent bag (same controls as "Get ready")."""
 
-    def __init__(self, game):
-        super().__init__(game, picks=0)
+    def __init__(self, game, testing=False):
+        super().__init__(game, picks=0, testing=testing)
+        self.PALETTE_Y = 74  # under the riddles
 
     def go(self):
         self.game.change_scene(TrialScene(self.game))
@@ -184,15 +185,19 @@ class TrialPrepScene(RewardScene):
             y = 27 + i * 11
             ui.draw_text(canvas, NUMERALS[i], (14, y), "gold")
             ui.draw_text(canvas, " ".join(seal.riddle), (38, y))
-        ui.draw_text(canvas, "Only the right gear hurts each seal.", (160, 74), anchor="midtop")
-        ui.draw_text(canvas, "Pack it in order: the front is dug first.", (160, 84), anchor="midtop", alpha=DIM)
+        if self.testing:
+            self.draw_palette(canvas, header=False)
+        else:
+            ui.draw_text(canvas, "Only the right gear hurts each seal.", (160, 74), anchor="midtop")
+            ui.draw_text(canvas, "Pack it in order: the front is dug first.", (160, 84), anchor="midtop",
+                         alpha=DIM)
         self.draw_slots(canvas)
         ui.draw_text(canvas, "Lent for the Trial. Your bag waits.", (160, 131), anchor="midtop", alpha=DIM)
 
         if self.notice_left:
             message = self.notice
         elif self.grabbed is not None:
-            message = "Now pick where it goes."
+            message = "Now pick gear, or where it goes." if self.testing else "Now pick where it goes."
         else:
             message = "Pick a slot, then where it goes."
         ui.draw_text(canvas, message, (160, 143), anchor="midtop")
