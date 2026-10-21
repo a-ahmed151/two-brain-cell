@@ -12,7 +12,7 @@ You are the **Helper** (Player 2). You carry the **backpack**. During each fight
 You don't fight. You make sure he's holding the right thing at the right time.
 
 ## Story
-"Player 2" is a job title. The Knight, Sir Reginald (Player 1), posted a notice: *must carry bag, must not speak, must not touch the gold. Pay: one heel of bread, on completion. Exposure guaranteed.* The Helper signed. Player 1 gets the gold, the glory and the high score; Player 2 gets bread.
+"Player 2" is a job title. Sir Knight (Player 1) posted a notice: *must carry bag, must not speak, must not touch the gold. Pay: one heel of bread, on completion. Exposure guaranteed.* The Helper signed. Player 1 gets the gold, the glory and the high score; Player 2 gets bread.
 
 - **The notice** shows after Play, before the bag select (SIGN to continue).
 - **Player 1's score** is arcade-style, in the top wall of every room and on the reward screen: each kill scores for him, whoever did the work (Skull 50, Skeleton 100, Vampire 200, Armored 250, the Count 2000), and every cleared room adds 500. **Player 2's score** is never kept: dashes, or "NOT TRACKED", "SEE CONTRACT", "ERROR" after rooms 3, 5 and 7.

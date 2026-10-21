@@ -3,7 +3,7 @@ hired the Helper to carry the bag, for bread. See "Story" in GAME_DESIGN.md.
 
 The bitmap font has letters, digits and  :%!?-/.',<>  only (no parentheses)."""
 
-KNIGHT_NAME = "Sir Reginald"
+KNIGHT_NAME = "Sir Knight"
 
 # The job posting, shown before the bag select. (text, color)
 NOTICE = [
