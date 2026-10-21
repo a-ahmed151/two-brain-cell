@@ -8,6 +8,7 @@ import pygame
 
 from game import ui
 from game.gear import draw_icon
+from game.ui import Speech
 
 MONSTERS = "assets/Character_animation/monsters_idle/{folder}/v2/{prefix}_v2_{i}.png"
 FPS = 6
@@ -32,6 +33,7 @@ class EnemyType:
     tint: tuple | None = None
     summons: str | None = None  # boss: calls one of these every SUMMON_TIME
     counter: str = "sword"  # the gear that beats it, shown when the room is announced
+    points: int = 100  # added to the Knight's (Player 1's) score when it dies
 
 
 SUMMON_TIME = 7.0
@@ -39,14 +41,14 @@ SUMMON_TIME = 7.0
 ENEMIES = {
     "skeleton": EnemyType("Skeleton", "skeleton1", "skeleton", hp=6, speed=22, damage=2, cooldown=1.0),
     "armored": EnemyType("Armored", "skeleton2", "skeleton2", hp=15, speed=16, damage=3, cooldown=1.3,
-                         tags=("armored",), tint=(150, 175, 230), counter="pickaxe"),
+                         tags=("armored",), tint=(150, 175, 230), counter="pickaxe", points=250),
     "skull": EnemyType("Skull", "skull", "skull", hp=4, speed=34, damage=1, cooldown=1.3, tags=("burns",),
-                       hunts="helper", counter="torch"),
+                       hunts="helper", counter="torch", points=50),
     "vampire": EnemyType("Vampire", "vampire", "vampire", hp=12, speed=24, damage=3, cooldown=1.1,
-                         tags=("burns", "vampire"), lifesteal=True, counter="torch"),
+                         tags=("burns", "vampire"), lifesteal=True, counter="torch", points=200),
     "count": EnemyType("The Count", "vampire", "vampire", hp=50, speed=18, damage=4, cooldown=1.5,
                        tags=("burns", "vampire"), lifesteal=True, scale=2, tint=(255, 150, 150), summons="skull",
-                       counter="torch"),
+                       counter="torch", points=2000),
 }
 
 
@@ -123,6 +125,7 @@ class Enemy:
         self.facing_left = False
         self.summon_left = SUMMON_TIME
         self.burned = False  # hit by fire: no more lifesteal
+        self.speech = None  # the Count has a word for the Helper
 
     @property
     def dead(self):
@@ -141,6 +144,7 @@ class Enemy:
     def update(self, dt, knight, helper, level, others):
         """Chase the prey and hit it when close. Returns a new enemy kind to summon, or None."""
         self.time += dt
+        self.speech = Speech.tick(self.speech, dt)
         self.flash = max(0.0, self.flash - dt)
         self.cooldown = max(0.0, self.cooldown - dt)
         prey = helper if self.type.hunts == "helper" and helper.alive else knight

@@ -15,6 +15,7 @@ REWARD_POOL = ["sword", "pickaxe", "torch", "shield", "potion", "potion", "bomb"
 CHEST_LOOT = ["potion", "bomb", "key"]  # the chest gives one of these
 SHRINE_HEAL = 15
 ROOM_REST = 5  # HP he gets back after every room
+ROOM_POINTS = 500  # Player 1's score for clearing a room (kills score by ENEMIES[...].points)
 DIG_SPEEDUP = 0.75  # the shrine's "faster digging" multiplies the extract time by this
 
 # Each bag starts with a different kit; the Knight always starts holding the Sword.
@@ -49,6 +50,7 @@ class RunState:
         # What's in his hands, carried into the next room. Either can be None.
         self.hands = {TOOL: KNIGHT_TOOL, ITEM: None}
         self.room = 0
+        self.p1_score = 0  # the Knight's; Player 2's is never tracked
         self.rooms = [(self.rng.randrange(len(arenas)), self.rng.choice(waves)) for waves in WAVES]
         self.rooms[-1] = (0, WAVES[-1][0])  # the boss gets the open Crypt
 

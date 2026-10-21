@@ -19,6 +19,7 @@ UI_SCALE = 4
 GLYPH_ADVANCE = 6  # the font is 5x7 glyphs plus a 1px shadow
 GLYPH_HEIGHT = 8
 INK = (26, 18, 32)  # the darkest color in the UI palette
+BUBBLE = (238, 226, 196)  # speech bubble paper
 
 
 @cache
@@ -85,6 +86,55 @@ def draw_text(surface, text, pos, color="cream", scale=1, anchor="topleft", alph
         image.set_alpha(alpha)
     rect = image.get_rect(**{anchor: pos})
     surface.blit(image, rect)
+    return rect
+
+
+def wrap(text, width):
+    """Split text into lines of at most `width` characters, at spaces."""
+    lines, line = [], ""
+    for word in text.split():
+        if line and len(line) + 1 + len(word) > width:
+            lines.append(line)
+            line = word
+        else:
+            line = f"{line} {word}" if line else word
+    return lines + [line] if line else lines
+
+
+class Speech:
+    """A line someone says, shown in a speech bubble over their head for a while."""
+
+    def __init__(self, text):
+        self.text = text
+        self.left = max(2.5, 0.08 * len(text))  # long enough to read
+
+    @staticmethod
+    def tick(speech, dt):
+        """Age a speaker's line; returns it, or None once it's over."""
+        if speech:
+            speech.left -= dt
+            if speech.left > 0:
+                return speech
+        return None
+
+
+def speech_bubble(surface, text, tip, width=22):
+    """A speech bubble above `tip` (the top of the speaker's head), its tail pointing
+    down at it. It's kept on the surface; the tail stays over the speaker."""
+    lines = wrap(text, width)
+    rect = pygame.Rect(0, 0, max(len(line) for line in lines) * GLYPH_ADVANCE + 5,
+                       len(lines) * (GLYPH_HEIGHT + 1) + 5)
+    rect.midbottom = (tip[0], tip[1] - 4)
+    rect.clamp_ip(surface.get_rect())
+    tail_x = min(max(tip[0], rect.left + 6), rect.right - 6)
+    tail = [(tail_x - 3, rect.bottom - 1), (tail_x + 3, rect.bottom - 1), (tip[0], max(tip[1], rect.bottom + 2))]
+    pygame.draw.rect(surface, BUBBLE, rect, border_radius=3)
+    pygame.draw.rect(surface, INK, rect, 1, border_radius=3)
+    pygame.draw.polygon(surface, BUBBLE, tail)
+    pygame.draw.line(surface, INK, tail[0], tail[2])
+    pygame.draw.line(surface, INK, tail[1], tail[2])
+    for i, line in enumerate(lines):
+        draw_text(surface, line, (rect.centerx + 1, rect.y + 3 + i * (GLYPH_HEIGHT + 1)), "dark", anchor="midtop")
     return rect
 
 

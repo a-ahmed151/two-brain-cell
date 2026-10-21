@@ -6,6 +6,7 @@ from functools import cache
 import pygame
 
 from game.enemies import move_body
+from game.ui import Speech
 from game.gear import FIST_DAMAGE, GEAR, TOOL, draw_icon
 
 KNIGHT_SPEED = 30  # pixels per second
@@ -117,6 +118,7 @@ class Knight:
         self.facing = pygame.Vector2(1, 0)
         self.moving = False
         self.popups = []  # read and drawn by the scene
+        self.speech = None  # what he's saying, drawn as a bubble by the scene
         self.animation = None
         self.anim_time = 0.0
         for piece in gear:
@@ -127,6 +129,7 @@ class Knight:
         if gear == "poison":
             # He trusts the Helper completely and drinks it at once.
             self.die("poison")
+            self.say("A potion! Cheers, Player 2.")
             return None
         if GEAR[gear].hand == TOOL:
             old, self.tool = self.tool, gear
@@ -138,6 +141,9 @@ class Knight:
         self.dead = True
         self.death_cause = cause
         self.fighting = False
+
+    def say(self, text):
+        self.speech = Speech(text)
 
     def popup(self, text, color, pos=None):
         self.popups.append(Popup(pos if pos is not None else self.pos + (0, -16), text, color))
@@ -154,7 +160,7 @@ class Knight:
         if self.hp <= 0:
             self.hp = 0
             self.die("enemy")
-            self.popup("Tell my mother... I was right...", (230, 230, 230), self.pos + (0, -26))
+            self.say("Tell my mother... I was right...")
         return dealt
 
     def heal(self, amount):
@@ -195,6 +201,7 @@ class Knight:
             popup.age += dt
             popup.pos.y -= 14 * dt
         self.popups = [p for p in self.popups if p.age < Popup.LIFE]
+        self.speech = Speech.tick(self.speech, dt)
         self.moving = False
         if self.dead or self.reached_exit:
             return

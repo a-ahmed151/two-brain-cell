@@ -11,6 +11,16 @@ You are the **Helper** (Player 2). You carry the **backpack**. During each fight
 
 You don't fight. You make sure he's holding the right thing at the right time.
 
+## Story
+"Player 2" is a job title. The Knight, Sir Reginald (Player 1), posted a notice: *must carry bag, must not speak, must not touch the gold. Pay: one heel of bread, on completion. Exposure guaranteed.* The Helper signed. Player 1 gets the gold, the glory and the high score; Player 2 gets bread.
+
+- **The notice** shows after Play, before the bag select (SIGN to continue).
+- **Player 1's score** is arcade-style, in the top wall of every room and on the reward screen: each kill scores for him, whoever did the work (Skull 50, Skeleton 100, Vampire 200, Armored 250, the Count 2000), and every cleared room adds 500. **Player 2's score** is never kept: dashes, or "NOT TRACKED", "SEE CONTRACT", "ERROR" after rooms 3, 5 and 7.
+- **Speech bubbles:** the Knight talks over his head: "TO GLORY!" at every fight, a line taking the credit for every cleared room, his last words when he dies. The Count speaks to the Helper when the boss fight starts, and the priest speaks from the blessing cards.
+- **The betrayal** pays off the score: when Player 1 drinks the Poison, the scoreboard flips (P1 GAME OVER, P2 gets his score).
+
+All the lines live in `game/story.py`. The font has letters, digits and `:%!?-/.',<>` only.
+
 ## A run
 1. **Pick a bag** (Satchel, Hauler or Pouch). Each starts with its own kit; the Knight always starts holding the Sword. Then **get ready** for room 1 (see step 5).
 2. **8 rooms, then the boss.** Each room is one screen with a random arena and a random enemy mix for its stage.
@@ -68,7 +78,7 @@ The trade-off: a big bag carries the answer to everything but is slow to swap mi
 | Armored | 15 | Shrugs off the Sword. Bring the Pickaxe |
 | Skull | 4 | Fast, **hunts the Helper**, burns |
 | Vampire | 12 | Heals by a third of the damage it deals (at least 1), until the Torch burns it |
-| The Count (boss) | 50 | Big vampire, calls a Skull every 7 s. Torch him |
+| The Count (boss) | 50 | Big vampire, calls a Skull every 7 s. Torch him. Tells the Helper "Even I pay my skulls." |
 
 Enemy mixes are in `WAVES` in `game/run.py` (two options per room, picked at random); stats in `ENEMIES` in `game/enemies.py`; gear in `GEAR` in `game/gear.py`. All tuning lives in those tables.
 
@@ -76,16 +86,16 @@ Enemy mixes are in `WAVES` in `game/run.py` (two options per room, picked at ran
 Prayer (heal 15), Bigger bag (+1 slot), Quick hands (dig 25% faster).
 
 ## The betrayal (ending)
-Every room, the Knight takes the credit. When the Count falls, the Knight gloats ("Hah! My skill is unmatched."), and **Poison** appears on top of the bag. After a moment he heads for the exit.
+Every room, the Knight takes the credit (and the points). When the Count falls, the Knight gloats ("Hah! My skill is unmatched."), and **Poison** appears on top of the bag ("His severance is in the bag."). After a moment he heads for the exit ("Good work, Player 1! That's me.").
 
-- Hand him the Poison before he gets there: he drinks it without a second thought, and the ending plays: his last words ("Tell my mother... I was right..."), the Helper keeps the gold, the Knight gets the stale bread, "Player 2 wins."
-- If he reaches the exit, he takes the gold and the credit again, and the run is over.
+- Hand him the Poison before he gets there: he drinks it without a second thought ("A potion! Cheers, Player 2."), and the ending plays: his last words ("Tell my mother... I was right..."), the scoreboard flips (P1 GAME OVER, P2 takes his score), the Helper keeps the gold, the Knight gets the stale bread, "PLAYER 2 WINS."
+- If he reaches the exit, he takes the gold and the credit again: "Contract renewed. Next shift: tomorrow." The run is over.
 
 ## Personality and humor
-- He yells "TO GLORY!" when sent into a fight.
+- He yells "TO GLORY!" when sent into a fight, and takes the credit for every cleared room in a speech bubble (lines in `game/story.py`).
 - On a boss kill: "Hah! My skill is unmatched."
 - On death: a dramatic "Tell my mother... I was right..."
-- The Helper never speaks.
+- The Helper never speaks (it's in the contract).
 
 ## Arenas
 Arenas are one screen (20×15 tiles, 320×240 px, shown at 960×720 with the HUD on the right). They're built by `tools/build_levels.py` from ASCII sketches, which autotiles the walls:

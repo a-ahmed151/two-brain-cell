@@ -8,7 +8,7 @@ import os
 
 import pygame
 
-from game import ui
+from game import story, ui
 from game.backpack import BAGS
 from game.combat import CombatScene, quit_run
 from game.enemies import draw_lineup
@@ -138,7 +138,7 @@ class IntroScene(MenuScene):
 
     def activate(self, button):
         if button == "play":
-            self.game.change_scene(RunStartScene(self.game))
+            self.game.change_scene(NoticeScene(self.game))
         elif button == "quit":
             self.game.quit()
 
@@ -167,16 +167,30 @@ class IntroScene(MenuScene):
                 canvas.blit(ui.sprite("cursor_sword"), (self.BUTTON_X - 16, y + 6))
 
 
-def wrap(text, width):
-    """Split text into lines of at most `width` characters, at spaces."""
-    lines, line = [], ""
-    for word in text.split():
-        if line and len(line) + 1 + len(word) > width:
-            lines.append(line)
-            line = word
-        else:
-            line = f"{line} {word}" if line else word
-    return lines + [line] if line else lines
+class NoticeScene(MenuScene):
+    """The job posting the Helper answered: Player 2 is a job title. Sign to pick a bag."""
+
+    SIGN_RECT = pygame.Rect(120, 151, 80, 17)
+
+    def on_click(self, key):
+        self.game.change_scene(RunStartScene(self.game))
+
+    def on_key(self, key):
+        if key in CONFIRM_KEYS:
+            self.game.change_scene(RunStartScene(self.game))
+        elif key == pygame.K_ESCAPE:
+            self.game.change_scene(IntroScene(self.game))
+
+    def draw_canvas(self, canvas):
+        canvas.blit(ui.background("levels_bg"), (0, 0))
+        ui.draw_text(canvas, "Now hiring", (160, 15), "gold", scale=2, anchor="center")
+        ui.draw_text(canvas, "Player 2", (160, 42), "gold", scale=2, anchor="midtop")
+        for i, (line, color) in enumerate(story.NOTICE):
+            ui.draw_text(canvas, line, (160, 68 + i * 12), color, anchor="midtop")
+        ui.draw_text(canvas, story.NOTICE_SIGNED, (276, 132), anchor="topright", alpha=DIM + 60)
+        ui.button(canvas, self.SIGN_RECT, "Sign", "red", self.state("sign", True))
+        self.hotspots.add(self.SIGN_RECT, "sign")
+        ui.draw_text(canvas, "ENTER sign   ESC back", (160, 171), anchor="midtop", alpha=DIM)
 
 
 def draw_card(canvas, rect, state, selected, title, blurb, icon=None, image=None, dim=False):
@@ -188,7 +202,7 @@ def draw_card(canvas, rect, state, selected, title, blurb, icon=None, image=None
         draw_icon(canvas, ICON_FONT, icon, (rect.centerx, rect.y + 11), size=14)
     alpha = DIM if dim else 255
     ui.draw_text(canvas, title, (rect.centerx, rect.y + 21), "gold", anchor="midtop", alpha=alpha)
-    for i, line in enumerate(wrap(blurb, rect.w // ui.GLYPH_ADVANCE - 1)[:3]):
+    for i, line in enumerate(ui.wrap(blurb, rect.w // ui.GLYPH_ADVANCE - 1)[:3]):
         ui.draw_text(canvas, line, (rect.centerx, rect.y + 31 + i * 9), anchor="midtop", alpha=alpha)
 
 
@@ -253,7 +267,7 @@ class RunStartScene(MenuScene):
             ui.draw_text(canvas, bag.name, (rect.centerx, rect.y + 24), "gold", anchor="midtop")
             ui.draw_text(canvas, f"{bag.slots} slots", (rect.centerx, rect.y + 33), anchor="midtop")
             ui.draw_text(canvas, f"dig {bag.extract_time} sec", (rect.centerx, rect.y + 42), anchor="midtop")
-            for j, line in enumerate(wrap(self.BLURBS[bag_id], 14)[:2]):
+            for j, line in enumerate(ui.wrap(self.BLURBS[bag_id], 14)[:2]):
                 ui.draw_text(canvas, line, (rect.centerx, rect.y + 53 + j * 9), anchor="midtop", alpha=DIM + 60)
             kit = STARTING_KIT[bag_id]
             for j, gear in enumerate(kit):
@@ -501,7 +515,12 @@ class RewardScene(MenuScene):
             title = "Get ready"
         else:
             title = "Pick a reward"
-        ui.draw_text(canvas, title, (160, 14), "gold", scale=2, anchor="center")
+        if self.shrine and self.run.room in story.PRIEST:
+            # The middle priest speaks from his card.
+            ui.speech_bubble(canvas, story.PRIEST[self.run.room], (160, self.CARD_Y + 2), width=30)
+        else:
+            ui.draw_text(canvas, title, (160, 14), "gold", scale=2, anchor="center")
+        self.draw_scores(canvas)
         quit_rect = canvas.blit(ui.sprite(f"icon_exit_{self.state(('quit', 0), self.quitting)}"), (6, 6))
         self.hotspots.add(quit_rect, ("quit", 0))
         ui.draw_text(canvas, "Quit run", (3, quit_rect.bottom + 1), alpha=255 if self.quitting else DIM)
@@ -537,6 +556,10 @@ class RewardScene(MenuScene):
         if self.section == "go":
             pygame.draw.rect(canvas, GOLD, self.GO_RECT.inflate(4, 4), 1)
         ui.draw_text(canvas, "WASD move   ENTER choose", (160, 173), anchor="midtop", alpha=DIM)
+
+    def draw_scores(self, canvas):
+        ui.draw_text(canvas, f"P1 {story.p1_score(self.run.p1_score)}", (314, 4), "gold", anchor="topright")
+        ui.draw_text(canvas, f"P2 {story.p2_score(self.run.room)}", (314, 13), anchor="topright", alpha=DIM)
 
     def draw_cards(self, canvas):
         x = 160 - (3 * self.CARD_W + 2 * self.CARD_GAP) // 2
@@ -585,23 +608,22 @@ class RewardScene(MenuScene):
 
 
 class EndingScene(MenuScene):
-    """After the betrayal: the Knight's last words, then the Helper finally gets paid."""
+    """After the betrayal: the Knight's last words, the scoreboard flips, and the Helper
+    finally gets paid."""
 
-    LINES = [
-        ("Tell my mother... I was right...", "cream"),
-        ("The Knight never saw it coming.", "cream"),
-        ("This time, the Helper keeps the gold.", "cream"),
-        ("And the Knight gets the stale bread.", "cream"),
-        ("Player 2 wins.", "gold"),
-    ]
-    FIRST_LINE, LINE_DELAY = 1.0, 1.6
+    FIRST_LINE, LINE_DELAY = 2.0, 1.4
+
+    def __init__(self, game, score):
+        super().__init__(game)
+        # Player 1's score finally goes to Player 2.
+        self.lines = [("P1  GAME OVER", "cream"), (f"P2  {story.p1_score(score)}", "gold")] + story.ENDING
 
     def lines_shown(self):
-        return max(0, min(len(self.LINES), int((self.time - self.FIRST_LINE) / self.LINE_DELAY) + 1))
+        return max(0, min(len(self.lines), int((self.time - self.FIRST_LINE) / self.LINE_DELAY) + 1))
 
     def advance(self):
-        if self.lines_shown() < len(self.LINES):
-            self.time = self.FIRST_LINE + self.LINE_DELAY * len(self.LINES)  # skip to the end
+        if self.lines_shown() < len(self.lines):
+            self.time = self.FIRST_LINE + self.LINE_DELAY * len(self.lines)  # skip to the end
         else:
             self.game.change_scene(IntroScene(self.game))
 
@@ -622,8 +644,9 @@ class EndingScene(MenuScene):
         canvas.blit(knight, knight.get_rect(midbottom=(144, 76)))
         helper = helper_frame("large", "idle_left", self.time)  # facing the Knight, bag full of gold
         canvas.blit(helper, helper.get_rect(midbottom=(176, 76)))
+        ui.speech_bubble(canvas, story.LAST_WORDS, (140, 60), width=18)
 
-        for i, (line, color) in enumerate(self.LINES[:self.lines_shown()]):
+        for i, (line, color) in enumerate(self.lines[:self.lines_shown()]):
             ui.draw_text(canvas, line, (160, 86 + i * 12), color, anchor="midtop")
-        if self.lines_shown() == len(self.LINES):
+        if self.lines_shown() == len(self.lines):
             ui.draw_text(canvas, "ENTER: main menu", (160, 160), anchor="midtop", alpha=DIM)

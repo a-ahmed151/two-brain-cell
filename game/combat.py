@@ -6,11 +6,11 @@ from functools import cache
 
 import pygame
 
-from game import ui
+from game import story, ui
 from game.enemies import ENEMIES, Enemy, draw_lineup
 from game.entities import HELPER_HP, Helper, Knight, Popup
 from game.gear import GEAR, ITEM, TOOL, draw_icon
-from game.run import ROOM_REST, ROOMS
+from game.run import ROOM_POINTS, ROOM_REST, ROOMS
 from game.scene import Scene
 
 WORLD_SCALE = 3  # the world is drawn at native pixel-art size, then scaled up
@@ -159,7 +159,9 @@ class CombatScene(Scene):
             if event.key == pygame.K_SPACE:
                 self.started = True
                 self.knight.fighting = True
-                self.knight.popup("TO GLORY!", GOLD)
+                self.knight.say(story.CHARGE)
+                if self.run.boss_room:
+                    self.enemies[0].speech = ui.Speech(story.COUNT)
         elif event.key == pygame.K_e:
             if self.helper.action(self.knight, self.closed_chest()) == "chest":
                 self.open_chest()
@@ -249,8 +251,9 @@ class CombatScene(Scene):
             if summon:
                 self.enemies.append(Enemy(summon, enemy.pos + (0, 10)))
         for enemy in self.enemies:
-            if enemy.dead:
-                knight.popups.append(Popup(enemy.pos + (0, -6), "X", (200, 200, 200)))
+            if enemy.dead:  # whoever did the work, Player 1 gets the points
+                self.run.p1_score += enemy.type.points
+                knight.popups.append(Popup(enemy.pos + (0, -6), f"+{enemy.type.points}", GOLD))
         self.enemies = [e for e in self.enemies if not e.dead]
 
         if knight.dead:
@@ -261,7 +264,7 @@ class CombatScene(Scene):
             if poisoned:
                 from game.menus import EndingScene
                 self.game.current_run = None
-                self.game.change_scene(EndingScene(self.game))
+                self.game.change_scene(EndingScene(self.game, self.run.p1_score))
             else:
                 self.end("lost", "He's dead.", f"The run ends in room {self.run.room + 1}.", "ENTER: new run")
             return
@@ -275,11 +278,13 @@ class CombatScene(Scene):
             # The exit opens. There's time to open the chest before walking out.
             self.cleared = True
             knight.fighting = False
+            self.run.p1_score += ROOM_POINTS
+            knight.popup(f"+{ROOM_POINTS}", GOLD, self.level.doorstep)
             if self.run.boss_room:
-                knight.popup("Hah! My skill is unmatched.", GOLD)
+                knight.say(story.BOSS_CLEAR)
                 helper.backpack.queue.insert(0, "poison")
             else:
-                knight.popup("Hah! Too easy.", GOLD)
+                knight.say(story.ROOM_CLEAR[self.run.room])
         if not self.run.boss_room:
             if pygame.Vector2(helper.rect.center).distance_to(self.level.doorstep) <= DOORSTEP_REACH:
                 self.room_clear()
@@ -288,9 +293,11 @@ class CombatScene(Scene):
         self.gloat += dt
         if self.gloat >= GLOAT_TIME and knight.leaving is None:
             knight.leaving = pygame.Vector2(self.level.doorstep)
+            knight.say(story.BOSS_LEAVING)
         if knight.reached_exit:
             self.game.current_run = None
-            self.end("lost", "Too late!", "He took the gold and the credit.", "Again.", "ENTER: new run")
+            title, lines = story.RENEWED
+            self.end("lost", title, *lines)
 
     # --- drawing ---
 
@@ -323,6 +330,12 @@ class CombatScene(Scene):
             text = self.world_font.render(popup.text, False, popup.color)
             text.set_alpha(round(255 * (1 - popup.age / Popup.LIFE)))
             world.blit(text, text.get_rect(center=popup.pos))
+        self.draw_score(world)
+        if knight.speech and not knight.reached_exit:
+            ui.speech_bubble(world, knight.speech.text, knight.pos + (0, -14))
+        for enemy in self.enemies:
+            if enemy.speech:
+                ui.speech_bubble(world, enemy.speech.text, enemy.pos + (0, -12 * enemy.type.scale))
 
         view_on_screen = (VIEW[0] * WORLD_SCALE, VIEW[1] * WORLD_SCALE)
         pygame.transform.scale(world, view_on_screen, screen.subsurface((0, 0, *view_on_screen)))
@@ -345,6 +358,11 @@ class CombatScene(Scene):
                 self.draw_tip(self.overlay, tip, bottom=True)
             screen.blit(pygame.transform.scale_by(self.overlay, ui.UI_SCALE), (0, 0))
 
+    def draw_score(self, world):
+        """Arcade-style, in the solid top wall: Player 1's score, and Player 2's, which isn't kept."""
+        ui.draw_text(world, f"P1 {story.p1_score(self.run.p1_score)}", (4, 4), "gold")
+        ui.draw_text(world, f"P2 {story.p2_score(self.run.room)}", (VIEW[0] - 4, 4), anchor="topright", alpha=DIM)
+
     def draw_pause(self, overlay):
         overlay.fill((0, 0, 0, 150))
         rect = pygame.Rect(0, 0, 120, 82)
@@ -366,7 +384,7 @@ class CombatScene(Scene):
             return None
         # One line, so it sits on the bottom wall and keeps the room (and the chest) in view.
         if self.run.boss_room:
-            return ["Credit again? There's Poison in the bag."]
+            return [story.POISON_TIP]
         if self.closed_chest() is not None and "key" in self.helper.backpack.queue + [self.helper.held]:
             return ["Clear! Open the chest, then exit."]
         return ["Clear! Walk out the open door."]
