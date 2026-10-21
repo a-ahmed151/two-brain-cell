@@ -43,7 +43,7 @@ GEAR_ICONS = {
     "potion": (80, 1),
 }
 ICON = 16
-ICON_TARGET = 15
+ICON_TARGET = 18
 
 HELMET = (150, 156, 170)
 HELMET_SHADE = (115, 120, 135)
