@@ -433,9 +433,10 @@ class Helper:
         name = self.current_animation()
         if name != self.animation:
             self.animation, self.anim_time = name, 0.0
+        # Also needed for the dig ring when he digs during the hurt animation.
+        progress = 1 - self.dig_left / self.backpack.bag.extract_time if self.digging else 0.0
         if name == "dig":
             # Stretch the rummage over the bag's extract time, so the glint lands as the gear comes out.
-            progress = 1 - self.dig_left / self.backpack.bag.extract_time
             time = progress * self.animation_length("dig") * 0.999
         else:
             time = self.anim_time
