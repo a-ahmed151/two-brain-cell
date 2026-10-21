@@ -25,6 +25,10 @@ HP_COLOR = (210, 60, 70)
 DIM = 130
 GLOAT_TIME = 2.5  # boss room: he poses this long before heading for the exit
 DOORSTEP_REACH = 10  # how close the Helper must get to the open exit's doorstep to leave
+FOLLOW_SPEED = 55  # once the room is clear the Knight jogs after the Helper...
+FOLLOW_GAP = 20  # ...staying about this far behind
+EXIT_SPEED = 40  # both walking out through the door
+EXIT_PAUSE = 0.3  # seconds after both are through before the next screen
 OPEN_DOOR = (79, 47, 48)  # tileset gids: dark doorway, left door leaf, right door leaf (drawn flipped)
 ARROW_FRAMES = [f"assets/interface/arrow_{i}.png" for i in range(1, 5)]  # point down
 ARROW_FPS = 8
@@ -124,6 +128,11 @@ class CombatScene(Scene):
         self.chest_opened = False  # the Helper opens it with a Key
         self.cleared = False
         self.gloat = 0.0  # boss room, after the fight
+        # Not the boss room: once the Helper reaches the open exit, both walk out through it.
+        self.exiting = False
+        self.gone = set()  # "knight" and/or "helper", once through the door
+        self.knight_at_door = False  # he's reached the doorstep and is walking in
+        self.exit_time = 0.0
         # None while playing; otherwise "won" or "lost", shown as a banner: (title, lines).
         self.outcome = None
         self.banner = ("", [])
@@ -243,6 +252,9 @@ class CombatScene(Scene):
             for enemy in self.enemies:
                 enemy.time += dt
             return
+        if self.exiting:
+            self.walk_out(dt)
+            return
         helper.update(dt, pygame.key.get_pressed(), self.level)
         knight.update(dt, self.level, self.enemies)
         for enemy in list(self.enemies):
@@ -282,8 +294,14 @@ class CombatScene(Scene):
             else:
                 knight.popup("Hah! Too easy.", GOLD)
         if not self.run.boss_room:
+            # He tags along behind the Helper (to the chest, to the door) so they leave together.
+            if knight.pos.distance_to(helper.rect.center) > FOLLOW_GAP:
+                knight._walk_to(pygame.Vector2(helper.rect.center), dt, FOLLOW_GAP, self.level, FOLLOW_SPEED)
             if pygame.Vector2(helper.rect.center).distance_to(self.level.doorstep) <= DOORSTEP_REACH:
-                self.room_clear()
+                self.exiting = True
+                helper.digging = False
+                if knight.pos.distance_to(self.level.doorstep) > 64:  # he dawdled
+                    knight.popup("Wait for me!", GOLD)
             return
         # The boss is dead. He'll take all the credit again... unless he never gets out.
         self.gloat += dt
@@ -292,6 +310,32 @@ class CombatScene(Scene):
         if knight.reached_exit:
             self.game.current_run = None
             self.end("lost", "Too late!", "He took the gold and the credit.", "Again.", "ENTER: new run")
+
+    def walk_out(self, dt):
+        """Both walk up through the open exit: the Helper first, the Knight right behind.
+        The room ends once they're both through."""
+        knight, helper, level = self.knight, self.helper, self.level
+        knight.update(dt, level)  # popups and animation timers
+        helper.anim_time += dt
+        helper.invulnerable = max(0.0, helper.invulnerable - dt)
+        if "helper" not in self.gone:
+            to_door = level.exit_pos - helper.pos
+            if to_door.length() <= EXIT_SPEED * dt:
+                self.gone.add("helper")
+            else:
+                helper.facing = to_door.normalize()
+                helper.walk_time += dt
+                helper.pos += helper.facing * EXIT_SPEED * dt
+                helper.rect.center = round(helper.pos.x), round(helper.pos.y)
+        if "knight" not in self.gone:
+            if not self.knight_at_door:
+                self.knight_at_door = knight._walk_to(pygame.Vector2(level.doorstep), dt, 2, level, FOLLOW_SPEED)
+            elif knight._walk_to(pygame.Vector2(level.exit_pos), dt, 1, None, EXIT_SPEED):
+                self.gone.add("knight")  # straight in: the doorway is part of the wall
+        if len(self.gone) == 2:
+            self.exit_time += dt
+            if self.exit_time >= EXIT_PAUSE:
+                self.room_clear()
 
     # --- drawing ---
 
@@ -316,10 +360,17 @@ class CombatScene(Scene):
             pygame.draw.circle(world, HIGHLIGHT_COLOR, knight.pos, 10, 1)
 
         # Draw whoever's feet are lower on screen last, so they overlap correctly.
-        actors = [(knight.feet, knight.draw), (helper.rect.bottom + 1, helper.draw)]
+        actors = [(knight.feet, knight.draw)] if "knight" not in self.gone else []
+        if "helper" not in self.gone:
+            actors.append((helper.rect.bottom + 1, helper.draw))
         actors += [(e.feet, lambda s, f, e=e: e.draw(s)) for e in self.enemies]
         for _, draw in sorted(actors, key=lambda a: a[0]):
             draw(world, ICON_FONT)
+        if self.exiting:
+            # Walking into the doorway: hide whatever pokes up above the top of the door.
+            door = self.level.exit_pos
+            cover = pygame.Rect(door.x - 20, 0, 40, door.y - 8)
+            world.blit(self.background, cover, cover)
         for popup in knight.popups:
             text = self.world_font.render(popup.text, False, popup.color)
             text.set_alpha(round(255 * (1 - popup.age / Popup.LIFE)))
@@ -363,7 +414,7 @@ class CombatScene(Scene):
             self.overlay_hotspots.add(button, i)
 
     def current_tip(self):
-        if not self.cleared or self.knight.dead:
+        if not self.cleared or self.knight.dead or self.exiting:
             return None
         # One line, so it sits on the bottom wall and keeps the room (and the chest) in view.
         if self.run.boss_room:
