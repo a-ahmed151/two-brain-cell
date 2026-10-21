@@ -49,3 +49,8 @@ class Backpack:
             return False
         self.queue.append(gear)
         return True
+
+    def put_back(self, gear):
+        """Return gear that came out of this bag to the end of the queue. It always goes
+        in: it had a slot before it came out."""
+        self.queue.append(gear)

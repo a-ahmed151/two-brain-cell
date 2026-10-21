@@ -7,7 +7,7 @@ from functools import cache
 import pygame
 
 from game import ui
-from game.enemies import ENEMIES, Enemy
+from game.enemies import ENEMIES, Enemy, draw_lineup
 from game.entities import HELPER_HP, Helper, Knight, Popup
 from game.gear import draw_icon
 from game.run import ROOM_REST, ROOMS
@@ -141,12 +141,16 @@ class CombatScene(Scene):
         self.banner = (title, lines)
 
     def room_clear(self):
-        """Carry the Knight and the bag over into the next room."""
+        """Carry the Knight and the bag over into the next room. Gear the Helper is still
+        holding, and his unused item, go to the back of the bag; he keeps his tool."""
         knight, helper, run = self.knight, self.helper, self.run
         if helper.held:
-            run.backpack.queue.insert(0, helper.held)  # back on top of the bag
+            run.backpack.put_back(helper.held)
             helper.held = None
         helper.digging = False
+        if knight.item and not run.backpack.full:
+            run.backpack.put_back(knight.item)
+            knight.item = None
         run.knight_hp = min(knight.max_hp, knight.hp + ROOM_REST)  # he catches his breath
         run.knight_gear = [g for g in (knight.tool, knight.item) if g]
         title = "Room clear!"
@@ -271,12 +275,13 @@ class CombatScene(Scene):
         title = "Boss" if self.run.boss_room else f"Room {self.run.room + 1}"
         lines = [enemy_summary(kinds)] + [ADVICE[k] for k in dict.fromkeys(kinds) if k in ADVICE]
         width = max(len(line) for line in lines) * ui.GLYPH_ADVANCE + 20
-        rect = pygame.Rect(0, 0, max(width, 140), 58 + 10 * len(lines))
+        rect = pygame.Rect(0, 0, max(width, 140), 80 + 10 * len(lines))
         rect.center = overlay.get_rect().center
         ui.nine_slice(overlay, "panel9", rect)
         ui.draw_text(overlay, title, (rect.centerx, rect.y + 10), "gold", scale=2, anchor="midtop")
+        draw_lineup(overlay, kinds, (rect.centerx, rect.y + 39))
         for i, line in enumerate(lines):
-            ui.draw_text(overlay, line, (rect.centerx, rect.y + 32 + i * 10), anchor="midtop")
+            ui.draw_text(overlay, line, (rect.centerx, rect.y + 54 + i * 10), anchor="midtop")
         pulse = 255 if int(self.time * 2) % 2 == 0 else 140
         ui.draw_text(overlay, "Press SPACE to start", (rect.centerx, rect.bottom - 16), "gold", anchor="midtop",
                      alpha=pulse)

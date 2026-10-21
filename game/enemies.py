@@ -6,6 +6,9 @@ from functools import cache
 
 import pygame
 
+from game import ui
+from game.gear import draw_icon
+
 MONSTERS = "assets/Character_animation/monsters_idle/{folder}/v2/{prefix}_v2_{i}.png"
 FPS = 6
 HIT_FLASH = 0.12  # seconds an enemy flashes white after a hit
@@ -28,6 +31,7 @@ class EnemyType:
     scale: int = 1
     tint: tuple | None = None
     summons: str | None = None  # boss: calls one of these every SUMMON_TIME
+    counter: str = "sword"  # the gear that beats it, shown when the room is announced
 
 
 SUMMON_TIME = 7.0
@@ -35,13 +39,14 @@ SUMMON_TIME = 7.0
 ENEMIES = {
     "skeleton": EnemyType("Skeleton", "skeleton1", "skeleton", hp=6, speed=22, damage=2, cooldown=1.0),
     "armored": EnemyType("Armored", "skeleton2", "skeleton2", hp=15, speed=16, damage=3, cooldown=1.3,
-                         tags=("armored",), tint=(150, 175, 230)),
+                         tags=("armored",), tint=(150, 175, 230), counter="pickaxe"),
     "skull": EnemyType("Skull", "skull", "skull", hp=4, speed=34, damage=1, cooldown=1.3, tags=("burns",),
-                       hunts="helper"),
+                       hunts="helper", counter="torch"),
     "vampire": EnemyType("Vampire", "vampire", "vampire", hp=12, speed=24, damage=3, cooldown=1.1,
-                         tags=("burns",), lifesteal=True),
+                         tags=("burns",), lifesteal=True, counter="torch"),
     "count": EnemyType("The Count", "vampire", "vampire", hp=50, speed=18, damage=4, cooldown=1.5,
-                       tags=("burns",), lifesteal=True, scale=2, tint=(255, 150, 150), summons="skull"),
+                       tags=("burns",), lifesteal=True, scale=2, tint=(255, 150, 150), summons="skull",
+                       counter="torch"),
 }
 
 
@@ -60,6 +65,31 @@ def enemy_frames(kind):
     left = [pygame.transform.flip(image, True, False) for image in right]
     white = [_flash(image) for image in right], [_flash(image) for image in left]
     return (right, left), white
+
+
+@cache
+def enemy_icon(kind):
+    """A 16 px tall picture of the enemy for menus and room announcements."""
+    image = enemy_frames(kind)[0][0][0]
+    return pygame.transform.scale_by(image, 16 / image.get_height())
+
+
+def draw_lineup(surface, kinds, center):
+    """The enemies in a room as a row of pictures on the UI canvas: each kind once, with
+    how many there are and the gear that beats it. Returns the row's rect."""
+    counts = {}
+    for kind in kinds:
+        counts[kind] = counts.get(kind, 0) + 1
+    cell = 44
+    rect = pygame.Rect(0, 0, cell * len(counts), 18)
+    rect.center = center
+    for i, (kind, count) in enumerate(counts.items()):
+        x = rect.x + i * cell
+        icon = enemy_icon(kind)
+        surface.blit(icon, icon.get_rect(midleft=(x + 2, rect.centery)))
+        ui.draw_text(surface, f"x{count}", (x + 20, rect.y))
+        draw_icon(surface, ui.IconFont(), ENEMIES[kind].counter, (x + 25, rect.bottom - 3), size=9)
+    return rect
 
 
 def _flash(image):

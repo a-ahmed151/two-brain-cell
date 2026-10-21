@@ -10,7 +10,8 @@ import pygame
 
 from game import ui
 from game.backpack import BAGS
-from game.combat import CombatScene, enemy_summary
+from game.combat import CombatScene
+from game.enemies import draw_lineup
 from game.entities import helper_frame, knight_frame
 from game.gear import GEAR, draw_icon
 from game.level import load_level, load_tiles
@@ -278,7 +279,7 @@ class RewardScene(MenuScene):
 
     CARD_W, CARD_H, CARD_GAP, CARD_Y = 92, 58, 8, 30
     BAG_Y = 104
-    GO_RECT = pygame.Rect(120, 152, 80, 16)
+    GO_RECT = pygame.Rect(120, 156, 80, 15)
     BLESSINGS = [
         ("heal", "Prayer", f"Heals the Knight {SHRINE_HEAL} HP."),
         ("slot", "Bigger bag", "One more slot."),
@@ -388,9 +389,9 @@ class RewardScene(MenuScene):
         self.draw_cards(canvas)
         self.draw_bag(canvas)
 
-        nxt = self.run.enemies
-        label = "Boss: " if self.run.boss_room else f"Room {self.run.room + 1}: "
-        ui.draw_text(canvas, label + enemy_summary(nxt), (160, 128), anchor="midtop")
+        label = "Next: the boss" if self.run.boss_room else f"Next: room {self.run.room + 1}"
+        ui.draw_text(canvas, label, (30, 130), "gold")
+        draw_lineup(canvas, self.run.enemies, (190, 134))
         if self.pending is not None:
             message = "Bag full! Pick gear to throw out."
         elif self.grabbed is not None:
@@ -399,14 +400,14 @@ class RewardScene(MenuScene):
             message = "Choose a card, or skip with Go."
         else:
             message = "Pick two bag slots to swap them."
-        ui.draw_text(canvas, message, (160, 139), "gold", anchor="midtop")
+        ui.draw_text(canvas, message, (160, 146), anchor="midtop")
 
         label = "Fight the boss" if self.run.boss_room else "Next room"
         ui.button(canvas, self.GO_RECT, label, "red", self.state(("go", 0), self.section == "go"))
         self.hotspots.add(self.GO_RECT, ("go", 0))
         if self.section == "go":
             pygame.draw.rect(canvas, GOLD, self.GO_RECT.inflate(4, 4), 1)
-        ui.draw_text(canvas, "WASD move   ENTER choose", (160, 171), anchor="midtop", alpha=DIM)
+        ui.draw_text(canvas, "WASD move   ENTER choose", (160, 173), anchor="midtop", alpha=DIM)
 
     def draw_cards(self, canvas):
         x = 160 - (3 * self.CARD_W + 2 * self.CARD_GAP) // 2

@@ -331,8 +331,7 @@ class Helper:
                 self.handed.append(gear)
                 old = knight.receive(gear)
                 if old:
-                    # Always fits: the gear just handed over freed its slot.
-                    self.backpack.add(old)
+                    self.backpack.put_back(old)  # to the end of the queue
         elif not self.digging and self.backpack.next is not None:
             self.digging = True
             self.dig_left = self.backpack.bag.extract_time
