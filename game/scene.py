@@ -9,6 +9,8 @@ from game.music import Music
 
 FPS = 60
 SCREEN_SIZE = (1280, 720)  # the UI kit's 320x180 canvas at 4x
+ICON = "assets/icon.png"  # the window/taskbar icon: the Helper under his bag
+ICON_SIZE = 64
 
 
 class Scene:
@@ -29,6 +31,8 @@ class Scene:
 
 class Game:
     def __init__(self):
+        # Before set_mode: some platforms only pick up the icon when the window is created.
+        pygame.display.set_icon(pygame.transform.smoothscale(pygame.image.load(ICON), (ICON_SIZE, ICON_SIZE)))
         self.screen = pygame.display.set_mode(SCREEN_SIZE)
         pygame.display.set_caption("Player 2")
         self.clock = pygame.time.Clock()
