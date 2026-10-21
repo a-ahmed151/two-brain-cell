@@ -278,8 +278,9 @@ class Helper:
     """Controlled with WASD/arrows. Drawn from the sheet matching the bag's size."""
 
     def __init__(self, start, backpack):
+        self.pos = pygame.Vector2(start)  # exact position; the rect is it rounded to pixels
         self.rect = pygame.Rect(0, 0, HELPER_SIZE, HELPER_SIZE)
-        self.rect.center = start
+        self.rect.center = round(self.pos.x), round(self.pos.y)
         self.facing = pygame.Vector2(1, 0)
         self.backpack = backpack
         self.held = None  # gear dug out of the bag, waiting to be handed over
@@ -375,15 +376,16 @@ class Helper:
         self.facing = move
         distance = move * HELPER_SPEED * dt
 
-        # Move one axis at a time so the Helper slides along walls.
+        # Move one axis at a time so the Helper slides along walls. The position is kept
+        # exact and only rounded for the rect; rounding each step instead would make a
+        # diagonal step (0.7 per axis) count as a full pixel on both axes, and run fast.
         for axis in (0, 1):
-            old = self.rect.copy()
-            if axis == 0:
-                self.rect.x += round(distance.x)
-            else:
-                self.rect.y += round(distance.y)
-            if level.rect_hits_wall(self.rect) or self.rect.collidelist(blockers) != -1:
-                self.rect = old
+            moved = pygame.Vector2(self.pos)
+            moved[axis] += distance[axis]
+            rect = self.rect.copy()
+            rect.center = round(moved.x), round(moved.y)
+            if not level.rect_hits_wall(rect) and rect.collidelist(blockers) == -1:
+                self.pos, self.rect = moved, rect
 
     def _dig(self, dt):
         self.dig_left -= dt

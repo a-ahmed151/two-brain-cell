@@ -12,6 +12,7 @@ ROOMS = 9  # the last one is the boss
 SHRINE_AFTER = (2, 5)  # room indices followed by a priest instead of a reward
 REWARD_CHOICES = 3
 REWARD_POOL = ["sword", "pickaxe", "torch", "shield", "potion", "potion", "bomb", "bomb", "key"]
+CHEST_LOOT = ["potion", "bomb", "key"]  # the chest gives one of these
 SHRINE_HEAL = 15
 ROOM_REST = 5  # HP he gets back after every room
 DIG_SPEEDUP = 0.75  # the shrine's "faster digging" multiplies the extract time by this
@@ -68,6 +69,9 @@ class RunState:
 
     def shrine_next(self):
         return self.room in SHRINE_AFTER
+
+    def roll_chest(self):
+        return self.rng.choice(CHEST_LOOT)
 
     def roll_rewards(self, count=REWARD_CHOICES):
         return self.rng.sample(sorted(set(REWARD_POOL)), count)
