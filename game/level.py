@@ -27,6 +27,7 @@ class Level:
     exit_pos: pygame.Vector2  # middle of the exit door, in the top wall; it opens once the room is clear
     spawns: list[pygame.Vector2]  # where enemies appear
     chest: pygame.Vector2 | None  # opened with a Key for an extra reward
+    entrance: pygame.Vector2 | None = None  # middle of the (closed) entrance door, in the top wall
 
     @property
     def pixel_width(self):
@@ -139,6 +140,7 @@ def load_level(filename):
         exit_pos=points["exit"][0],
         spawns=points["spawn"],
         chest=points.get("chest", [None])[0],
+        entrance=points.get("entrance", [None])[0],
     )
 
 

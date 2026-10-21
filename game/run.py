@@ -5,7 +5,7 @@ import dataclasses
 import random
 
 from game.backpack import BAGS, Backpack
-from game.entities import KNIGHT_MAX_HP
+from game.entities import HELPER_HP, KNIGHT_MAX_HP
 from game.gear import ITEM, TOOL
 
 ROOMS = 9  # the last one is the boss
@@ -47,6 +47,7 @@ class RunState:
         self.bag_id = bag_id
         self.backpack = Backpack(BAGS[bag_id], STARTING_KIT[bag_id])
         self.knight_hp = self.knight_max_hp = KNIGHT_MAX_HP
+        self.helper_hp = HELPER_HP  # the Helper's hearts: lost for good, nothing heals them
         # What's in his hands, carried into the next room. Either can be None.
         self.hands = {TOOL: KNIGHT_TOOL, ITEM: None}
         self.room = 0

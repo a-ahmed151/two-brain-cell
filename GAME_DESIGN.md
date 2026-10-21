@@ -22,10 +22,10 @@ You don't fight. You make sure he's holding the right thing at the right time.
 All the lines live in `game/story.py`. The font has letters, digits and `:%!?-/.',<>` only.
 
 ## A run
-1. **Pick a bag** (Satchel, Hauler or Pouch). Each starts with its own kit; the Knight always starts holding the Sword. Then **get ready** for room 1 (see step 5).
+1. **Pick a bag** (Satchel, Hauler or Pouch). Each starts with its own kit; the Knight always starts holding the Sword. Then **get ready** for room 1 (see step 5). Before room 1, a short **intro** plays: the Knight barges into a room where the Helper is waiting, they "talk" (he talks; the Helper's replies are actions), and they walk out into room 1 together. ENTER moves the dialogue on; ESC or Skip skips it (`game/cutscene.py`).
 2. **8 rooms, then the boss.** Each room is one screen with a random arena and a random enemy mix for its stage.
 3. **Before each fight** the room is frozen behind an overlay showing its enemies (picture, count and the gear that beats each one) and advice ("Armor: the Sword is weak. Pickaxe!"). Nothing moves until **SPACE**.
-4. **The room is clear** when every enemy is dead. Nothing moves you on automatically: the **exit door** in the top wall opens (an arrow points at it), and you still have time to open the chest. **Walk the Helper out of the exit** to move on. Each room also has an arched **entrance door**, closed behind you, showing where you came in. On leaving, he rests (+5 HP) and keeps his tool. Gear still in the Helper's hands and his unused item go to the **back of the bag** (his item stays in hand only if the bag is full).
+4. **The room is clear** when every enemy is dead. Nothing moves you on automatically: the **exit door** in the top wall opens (an arrow points at it), and you still have time to open the chest. **Walk the Helper out of the exit** to move on. Once the room is clear the Knight tags along behind the Helper, and when the Helper reaches the door they walk out through it together. Each room also has an arched **entrance door**, closed behind you, showing where you came in. On leaving, he rests (+5 HP) and keeps his tool. Gear still in the Helper's hands and his unused item go to the **back of the bag** (his item stays in hand only if the bag is full).
 5. **Between rooms:** pick 1 of 3 gear for the bag, or after rooms 3 and 6, one of a priest's blessings. Change your mind freely: click a taken card to give it back, or another card to swap your pick for it. The next room's enemies are shown the same way, so you can get ready for it: pick any two slots, among the bag's slots and **the Knight's tool and item hands**, to swap them (tools only go in his tool hand, items only in his item hand).
 6. **The run ends** if the Knight dies or the Helper dies. Back to bag select.
 
@@ -41,7 +41,8 @@ All the lines live in `game/story.py`. The font has letters, digits and `:%!?-/.
 - **WASD** to move, **E** to act.
 - **E, empty-handed:** dig out the **next entry in the bag's queue**. Digging takes the bag's extract time; you can't move while digging, and moving cancels it.
 - **E, holding gear, next to the Knight:** hand it over. If that hand was full, the old gear goes to the **end of the queue**.
-- **4 hearts.** Skulls hunt the Helper; every hit costs a heart (then a moment of safety) and knocks a dig back into the bag. If the Helper dies, the run is over.
+- **4 hearts for the whole run.** They never come back: nothing heals the Helper, not between rooms, not at a shrine. Every hit costs a heart (then a moment of safety) and knocks a dig back into the bag. If the Helper dies, the run is over.
+- **Don't get too close.** Skulls always hunt the Helper. Every other enemy goes for the Knight, but turns on the Helper who comes within 24 px ("!" over its head), and keeps chasing until the Helper is 56 px away ("?", back to the Knight). The Helper can't fight back; he's faster than every enemy, so **running away** is the only way to shake them. Hand gear over from behind the Knight, not from the middle of the fight.
 
 ## Backpacks
 | Bag | Slots | Extract time | Starting kit |

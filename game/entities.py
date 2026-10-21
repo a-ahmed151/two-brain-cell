@@ -239,7 +239,7 @@ class Knight:
                 enemy.hurt(damage, fire)
                 self.popup(str(damage), color, enemy.pos + (0, -12 * enemy.type.scale))
 
-    def _walk_to(self, point, dt, stop, level=None):
+    def _walk_to(self, point, dt, stop, level=None, speed=KNIGHT_SPEED):
         """Step toward `point`; True once within `stop` pixels of it."""
         to_point = point - self.pos
         if to_point.length() <= stop:
@@ -250,7 +250,7 @@ class Knight:
             if heading.length_squared():
                 to_point = heading
         self.facing = to_point.normalize()
-        step = self.facing * min(KNIGHT_SPEED * dt, to_point.length())
+        step = self.facing * min(speed * dt, to_point.length())
         self.pos = move_body(self.pos, step, KNIGHT_SIZE, level) if level else self.pos + step
         return False
 
@@ -292,7 +292,7 @@ class Knight:
 class Helper:
     """Controlled with WASD/arrows. Drawn from the sheet matching the bag's size."""
 
-    def __init__(self, start, backpack):
+    def __init__(self, start, backpack, hp=HELPER_HP):
         self.pos = pygame.Vector2(start)  # exact position; the rect is it rounded to pixels
         self.rect = pygame.Rect(0, 0, HELPER_SIZE, HELPER_SIZE)
         self.rect.center = round(self.pos.x), round(self.pos.y)
@@ -306,7 +306,7 @@ class Helper:
         self.give_side = "right"
         self.hurt_time = 0.0
         self.handed = []  # every piece of gear given to the Knight this run, in order
-        self.hp = HELPER_HP
+        self.hp = hp  # hearts; they never come back, so this carries over between rooms
         self.invulnerable = 0.0
         self.animation = None
         self.anim_time = 0.0
