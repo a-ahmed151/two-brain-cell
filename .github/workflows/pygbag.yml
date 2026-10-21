@@ -20,7 +20,8 @@ jobs:
             python -m pip install pygbag
             # pygbag refuses MP3 in the assets; the web build plays bg.ogg instead (game/music.py).
             rm -f assets/sounds/*.mp3
-            python -m pygbag --build $GITHUB_WORKSPACE/main.py
+            # WAV plays fine in browsers; pygbag only nags about it.
+            python -m pygbag --build --disable-sound-format-error $GITHUB_WORKSPACE/main.py
     - name: Upload to GitHub pages branch gh-pages
       uses: JamesIves/github-pages-deploy-action@v4
       with:
