@@ -12,7 +12,7 @@ You are the **Helper** (Player 2). You carry the **backpack**. During each fight
 You don't fight. You make sure he's holding the right thing at the right time.
 
 ## A run
-1. **Pick a bag** (Satchel, Hauler or Pouch). Each starts with its own kit; the Knight always starts holding the Sword. Then **get ready** for room 1 (see step 5).
+1. **Pick a bag** (Satchel, Hauler or Pouch). Each starts with its own kit; the Knight always starts holding the Sword. Then **get ready** for room 1 (see step 5). Before room 1, a short **intro** plays: the Knight barges into a room where the Helper is waiting, they "talk" (he talks; the Helper's replies are actions), and they walk out into room 1 together. ENTER moves the dialogue on; ESC or Skip skips it (`game/cutscene.py`).
 2. **8 rooms, then the boss.** Each room is one screen with a random arena and a random enemy mix for its stage.
 3. **Before each fight** the room is frozen behind an overlay showing its enemies (picture, count and the gear that beats each one) and advice ("Armor: the Sword is weak. Pickaxe!"). Nothing moves until **SPACE**.
 4. **The room is clear** when every enemy is dead. Nothing moves you on automatically: the **exit door** in the top wall opens (an arrow points at it), and you still have time to open the chest. **Walk the Helper out of the exit** to move on. Each room also has an arched **entrance door**, closed behind you, showing where you came in. On leaving, he rests (+5 HP) and keeps his tool. Gear still in the Helper's hands and his unused item go to the **back of the bag** (his item stays in hand only if the bag is full).

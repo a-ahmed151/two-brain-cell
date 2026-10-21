@@ -11,6 +11,7 @@ import pygame
 from game import ui
 from game.backpack import BAGS
 from game.combat import CombatScene, quit_run
+from game.cutscene import IntroCutscene
 from game.enemies import draw_lineup
 from game.entities import helper_frame, knight_frame
 from game.gear import GEAR, ITEM, TOOL, draw_icon
@@ -433,6 +434,10 @@ class RewardScene(MenuScene):
     # --- input ---
 
     def go(self):
+        if self.run.room == 0:
+            # Before room 1: the Knight and the Helper meet up, then walk into it together.
+            self.game.change_scene(IntroCutscene(self.game, lambda: CombatScene(self.game)))
+            return
         self.game.change_scene(CombatScene(self.game))
 
     def sections(self):
