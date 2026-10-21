@@ -18,8 +18,7 @@ HURT_FLASH = 0.15
 POTION_HEAL = 15
 POTION_AT = 0.4  # he drinks a held Potion once he's below this much of his HP
 BOMB_DAMAGE = 8
-BOMB_RADIUS = 36
-BOMB_CROWD = 2  # he throws a held Bomb once this many enemies are in range (or the boss is)
+BOMB_RADIUS = 36  # he throws a held Bomb as soon as any enemy is this close
 
 HELPER_SPEED = 65
 HELPER_SIZE = 9  # collision box, in pixels
@@ -180,7 +179,7 @@ class Knight:
             self.heal(POTION_HEAL)
         elif item == "bomb" and self.fighting:
             near = [e for e in enemies if not e.dead and e.pos.distance_to(self.pos) <= BOMB_RADIUS * e.type.scale]
-            if len(near) >= BOMB_CROWD or any(e.type.scale > 1 for e in near):
+            if near:
                 self.item = None
                 self.popup("BOOM!", (255, 200, 80))
                 for enemy in near:

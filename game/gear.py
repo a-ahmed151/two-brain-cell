@@ -41,7 +41,7 @@ GEAR = {
                       bonus={"burns": 4}),
     "shield": GearType("Shield", TOOL, (70, 110, 190), "Halves damage taken.", damage=1, guard=0.5),
     "key": GearType("Key", ITEM, (230, 200, 60), "You open the room's chest.", helper_only=True),
-    "bomb": GearType("Bomb", ITEM, (75, 75, 85), "Blasts a crowd near him."),
+    "bomb": GearType("Bomb", ITEM, (75, 75, 85), "Blasts enemies near him."),
     "potion": GearType("Potion", ITEM, (210, 60, 90), "Drunk when he's hurt."),
     "poison": GearType("Poison", ITEM, (120, 200, 70), "Not a health potion."),  # the betrayal
 }
