@@ -295,9 +295,9 @@ class CombatScene(Scene):
             knight.leaving = pygame.Vector2(self.level.doorstep)
             knight.say(story.BOSS_LEAVING)
         if knight.reached_exit:
+            from game.menus import RenewedScene
             self.game.current_run = None
-            title, lines = story.RENEWED
-            self.end("lost", title, *lines)
+            self.game.change_scene(RenewedScene(self.game, self.run.p1_score, self.run.backpack.bag.sprite))
 
     # --- drawing ---
 

@@ -89,7 +89,7 @@ Prayer (heal 15), Bigger bag (+1 slot), Quick hands (dig 25% faster).
 Every room, the Knight takes the credit (and the points). When the Count falls, the Knight gloats ("Hah! My skill is unmatched."), and **Poison** appears on top of the bag ("His severance is in the bag."). After a moment he heads for the exit ("Good work, Player 1! That's me.").
 
 - Hand him the Poison before he gets there: he drinks it without a second thought ("A potion! Cheers, Player 2."), and the ending plays: his last words ("Tell my mother... I was right..."), the scoreboard flips (P1 GAME OVER, P2 takes his score), the Helper keeps the gold, the Knight gets the stale bread, "PLAYER 2 WINS."
-- If he reaches the exit, he takes the gold and the credit again: "Contract renewed. Next shift: tomorrow." The run is over.
+- If he reaches the exit, Player 1 gets all the glory, in an ending of his own: "Victory!", the Knight shown big with gold raining down ("Another flawless solo run!"), his score counting up to a flashing HIGH SCORE, P2 still at dashes, the Helper still digging in the bag. "The Knight keeps the gold and the glory. The Helper's contract is renewed. PLAYER 1 WINS. AGAIN." ENTER goes back to the job notice.
 
 ## Personality and humor
 - He yells "TO GLORY!" when sent into a fight, and takes the credit for every cleared room in a speech bubble (lines in `game/story.py`).

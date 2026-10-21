@@ -607,25 +607,32 @@ class RewardScene(MenuScene):
             self.hotspots.add(rect, ("slots", i))
 
 
-class EndingScene(MenuScene):
-    """After the betrayal: the Knight's last words, the scoreboard flips, and the Helper
-    finally gets paid."""
+class StoryEndScene(MenuScene):
+    """An ending: a title, a tableau of the two of them, then lines that appear one by
+    one. ENTER skips to the end, then goes on."""
 
+    TITLE = "The End"
+    CONTINUE = "ENTER: main menu"
     FIRST_LINE, LINE_DELAY = 2.0, 1.4
+    LINES_Y = 86
 
-    def __init__(self, game, score):
+    def __init__(self, game, lines):
         super().__init__(game)
-        # Player 1's score finally goes to Player 2.
-        self.lines = [("P1  GAME OVER", "cream"), (f"P2  {story.p1_score(score)}", "gold")] + story.ENDING
+        self.lines = lines
 
     def lines_shown(self):
-        return max(0, min(len(self.lines), int((self.time - self.FIRST_LINE) / self.LINE_DELAY) + 1))
+        if self.time < self.FIRST_LINE:
+            return 0
+        return min(len(self.lines), int((self.time - self.FIRST_LINE) / self.LINE_DELAY) + 1)
 
     def advance(self):
         if self.lines_shown() < len(self.lines):
             self.time = self.FIRST_LINE + self.LINE_DELAY * len(self.lines)  # skip to the end
         else:
-            self.game.change_scene(IntroScene(self.game))
+            self.game.change_scene(self.next_scene())
+
+    def next_scene(self):
+        return IntroScene(self.game)
 
     def on_click(self, key):
         self.advance()
@@ -636,17 +643,70 @@ class EndingScene(MenuScene):
 
     def draw_canvas(self, canvas):
         canvas.blit(ui.background("levels_bg"), (0, 0))
-        ui.draw_text(canvas, "The End", (160, 15), "gold", scale=2, anchor="center")
+        ui.draw_text(canvas, self.TITLE, (160, 15), "gold", scale=2, anchor="center")
         # Click anywhere to continue.
         self.hotspots.add(canvas.get_rect(), "continue")
+        self.draw_tableau(canvas)
+        for i, (line, color) in enumerate(self.lines[:self.lines_shown()]):
+            ui.draw_text(canvas, line, (160, self.LINES_Y + i * 12), color, anchor="midtop")
+        if self.lines_shown() == len(self.lines):
+            ui.draw_text(canvas, self.CONTINUE, (160, 160), anchor="midtop", alpha=DIM)
 
+    def draw_tableau(self, canvas):
+        pass
+
+
+class EndingScene(StoryEndScene):
+    """After the betrayal: the Knight's last words, the scoreboard flips, and the Helper
+    finally gets paid."""
+
+    def __init__(self, game, score):
+        # Player 1's score finally goes to Player 2.
+        super().__init__(game, [("P1  GAME OVER", "cream"), (f"P2  {story.p1_score(score)}", "gold")]
+                         + story.ENDING)
+
+    def draw_tableau(self, canvas):
         knight = knight_frame("death", self.time)
         canvas.blit(knight, knight.get_rect(midbottom=(144, 76)))
         helper = helper_frame("large", "idle_left", self.time)  # facing the Knight, bag full of gold
         canvas.blit(helper, helper.get_rect(midbottom=(176, 76)))
         ui.speech_bubble(canvas, story.LAST_WORDS, (140, 60), width=18)
 
-        for i, (line, color) in enumerate(self.lines[:self.lines_shown()]):
-            ui.draw_text(canvas, line, (160, 86 + i * 12), color, anchor="midtop")
-        if self.lines_shown() == len(self.lines):
-            ui.draw_text(canvas, "ENTER: main menu", (160, 160), anchor="midtop", alpha=DIM)
+
+class RenewedScene(StoryEndScene):
+    """He made it out with the gold: Player 1 takes all the glory, his score rolls up,
+    and Player 2 goes back to work."""
+
+    TITLE = "Victory!"
+    CONTINUE = "ENTER: sign again"
+    TALLY_TIME = 1.5  # his score counts up this long
+    COINS = [(-34, 0.0), (-22, 0.55), (-10, 0.25), (8, 0.8), (20, 0.4), (32, 0.1)]  # x offset, phase
+    COIN_FALL = 46  # pixels a coin drops before it lands
+    KNIGHT = (150, 96)  # his feet; scaled up, in the middle of it all
+    LINES_Y = 108
+
+    def __init__(self, game, score, bag):
+        super().__init__(game, story.RENEWED_ENDING)
+        self.score = score
+        self.bag = bag  # the Helper's sprite size
+
+    def next_scene(self):
+        return NoticeScene(self.game)  # the job's still open
+
+    def draw_tableau(self, canvas):
+        x, feet = self.KNIGHT
+        for dx, phase in self.COINS:
+            fall = ((self.time * 0.9 + phase) % 1.0) * self.COIN_FALL
+            coin = ui.sprite("coin")
+            canvas.blit(coin, coin.get_rect(center=(x + dx, feet - self.COIN_FALL + fall)))
+        knight = pygame.transform.scale_by(knight_frame("victory", self.time), 2)
+        canvas.blit(knight, knight.get_rect(midbottom=(x, feet + 4)))
+        helper = helper_frame(self.bag, "dig", self.time)  # still digging in the bag
+        canvas.blit(helper, helper.get_rect(midbottom=(x + 46, feet)))
+        ui.speech_bubble(canvas, story.GLORY, (x - 4, feet - 44), width=26)
+
+        rolled = round(self.score * min(1.0, self.time / self.TALLY_TIME))
+        ui.draw_text(canvas, f"P1 {story.p1_score(rolled)}", (38, 56), "gold")
+        ui.draw_text(canvas, f"P2 {story.P2_BLANK}", (38, 66), alpha=DIM)
+        if self.time >= self.TALLY_TIME and int(self.time * 3) % 2 == 0:
+            ui.draw_text(canvas, "High score!", (38, 76), "gold")

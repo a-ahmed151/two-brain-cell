@@ -46,8 +46,13 @@ P2_BLANK = "------"
 
 POISON_TIP = "His severance is in the bag."
 
-# He reached the exit with the gold: the bad ending.
-RENEWED = ("Contract renewed.", ["He took the gold and the credit.", "Next shift: tomorrow.", "ENTER: new run"])
+# He reached the exit with the gold: the bad ending. Player 1 gets all the glory.
+GLORY = "Another flawless solo run!"
+RENEWED_ENDING = [
+    ("The Knight keeps the gold and the glory.", "cream"),
+    ("The Helper's contract is renewed.", "cream"),
+    ("PLAYER 1 WINS. AGAIN.", "gold"),
+]
 
 LAST_WORDS = "Tell my mother... I was right..."
 ENDING = [
