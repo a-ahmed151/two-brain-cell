@@ -6,7 +6,7 @@ from functools import cache
 
 import pygame
 
-from game import audio, story, ui
+from game import audio, hints, story, ui
 from game.enemies import ENEMIES, Enemy, draw_lineup
 from game.entities import HELPER_HP, Helper, Knight, Popup
 from game.gear import GEAR, ITEM, TOOL, draw_icon
@@ -106,6 +106,9 @@ def enemy_summary(kinds):
 
 
 class CombatScene(Scene):
+    pause_options = PAUSE_OPTIONS
+    first_run_hints = True  # one-time advice boxes (game/hints.py); the tutorial has its own
+
     def __init__(self, game):
         super().__init__(game)
         run = self.run = game.current_run
@@ -141,6 +144,7 @@ class CombatScene(Scene):
         self.paused = False
         self.pause_choice = 0
         self.step_left = 0.0
+        self.hint = None  # (title, lines) of a first-run hint; the fight waits until it's dismissed
         self.overlay_hotspots = ui.Hotspots()  # the pause menu, on the overlay
         self.hud_hotspots = ui.Hotspots(offset=(VIEW[0] * WORLD_SCALE, 0))
 
@@ -149,6 +153,13 @@ class CombatScene(Scene):
     def handle_event(self, event):
         if self.paused:
             self.pause_event(event)
+            return
+        if self.hint:
+            if (event.type == pygame.KEYDOWN and event.key in (pygame.K_RETURN, pygame.K_SPACE, pygame.K_e)) or \
+                    (event.type == pygame.MOUSEBUTTONUP and event.button == 1):
+                self.hint = None
+            elif event.type == pygame.KEYDOWN and event.key in (pygame.K_ESCAPE, pygame.K_p):
+                self.pause()
             return
         result = self.hud_hotspots.handle(event)
         if result and result[0] == "click" and result[1] == "pause" and not self.outcome:
@@ -172,8 +183,11 @@ class CombatScene(Scene):
                 self.knight.fighting = True
                 self.knight.say(story.CHARGE)
         elif event.key == pygame.K_e:
+            bag, handed = len(self.helper.backpack.queue), len(self.helper.handed)
             if self.helper.action(self.knight, self.closed_chest()) == "chest":
                 self.open_chest()
+            elif len(self.helper.handed) > handed and len(self.helper.backpack.queue) > bag:
+                self.show_hint("swapped")
 
     def open_chest(self):
         """A random item, to the end of the bag. It always fits: the Key's slot is free."""
@@ -206,7 +220,7 @@ class CombatScene(Scene):
         audio.play("pauseoff")
 
     def choose_pause(self):
-        if PAUSE_OPTIONS[self.pause_choice] == "Resume":
+        if self.pause_options[self.pause_choice] == "Resume":
             self.resume()
         else:
             quit_run(self.game)
@@ -252,8 +266,26 @@ class CombatScene(Scene):
         self.outcome = "won"  # nothing more happens in this room
         self.leave()
 
+    def show_hint(self, hint_id):
+        if self.first_run_hints and not self.hint:
+            self.hint = hints.take(hint_id)
+
+    def check_hints(self):
+        """The first time something happens in a run, a word of advice."""
+        knight, helper = self.knight, self.helper
+        if helper.held:
+            self.show_hint("key" if GEAR[helper.held].helper_only else "held")
+        if helper.hp < HELPER_HP:
+            self.show_hint("hurt")
+        near = pygame.Vector2(helper.rect.center)
+        if any(e.after_helper or (e.type.hunts == "helper" and e.pos.distance_to(near) < 40) for e in self.enemies):
+            self.show_hint("chased")
+        if not knight.dead and knight.hp <= knight.max_hp * 0.4 and knight.item != "potion" and \
+                "potion" in helper.backpack.queue + [helper.held]:
+            self.show_hint("low")
+
     def update(self, dt):
-        if self.paused:
+        if self.paused or self.hint:
             return
         knight, helper = self.knight, self.helper
         self.time += dt
@@ -299,6 +331,7 @@ class CombatScene(Scene):
         if not helper.alive:
             self.end("lost", "You're dead.", "Who carries his stuff now?", "ENTER: new run")
             return
+        self.check_hints()
         if self.enemies:
             return
         if not self.room_won(dt):
@@ -427,11 +460,14 @@ class CombatScene(Scene):
         screen.blit(pygame.transform.scale(self.hud, (screen.get_width() - hud_x, screen.get_height())), (hud_x, 0))
 
         tip = self.current_tip()
-        if self.outcome or tip or not self.started or self.paused:
+        if self.outcome or tip or not self.started or self.paused or self.hint:
             self.overlay.fill((0, 0, 0, 0))
             self.overlay_hotspots.clear()
             if self.paused:
                 self.draw_pause(self.overlay)
+            elif self.hint:
+                title, lines = self.hint
+                ui.hint_panel(self.overlay, title, lines, "ENTER ok")
             elif self.outcome:
                 self.draw_banner(self.overlay)
             elif not self.started:
@@ -457,7 +493,7 @@ class CombatScene(Scene):
         rect.center = overlay.get_rect().center
         ui.nine_slice(overlay, "panel9", rect)
         ui.draw_text(overlay, "Paused", (rect.centerx, rect.y + 10), "gold", scale=2, anchor="midtop")
-        for i, label in enumerate(PAUSE_OPTIONS):
+        for i, label in enumerate(self.pause_options):
             button = pygame.Rect(0, rect.y + 34 + i * 20, 84, 16)
             button.centerx = rect.centerx
             selected = i == self.pause_choice

@@ -8,7 +8,7 @@ import os
 
 import pygame
 
-from game import story, ui
+from game import hints, settings, story, ui
 from game.backpack import BAGS
 from game.combat import CombatScene, quit_run
 from game.cutscene import IntroCutscene
@@ -45,11 +45,20 @@ class MenuScene(Scene):
         self.canvas = pygame.Surface(ui.CANVAS_SIZE)
         self.hotspots = ui.Hotspots()
         self.time = 0.0
+        self.hint = None  # (title, lines) of a first-run hint, over the screen until dismissed
+
+    def show_hint(self, hint_id):
+        self.hint = hints.take(hint_id)
 
     def update(self, dt):
         self.time += dt
 
     def handle_event(self, event):
+        if self.hint:
+            if (event.type == pygame.KEYDOWN and event.key in CONFIRM_KEYS + (pygame.K_ESCAPE,)) or \
+                    (event.type == pygame.MOUSEBUTTONUP and event.button == 1):
+                self.hint = None
+            return
         result = self.hotspots.handle(event)
         if result:
             kind, key = result
@@ -69,6 +78,12 @@ class MenuScene(Scene):
     def draw(self, screen):
         self.hotspots.clear()
         self.draw_canvas(self.canvas)
+        if self.hint:
+            shade = pygame.Surface(ui.CANVAS_SIZE, pygame.SRCALPHA)
+            shade.fill((0, 0, 0, 120))
+            self.canvas.blit(shade, (0, 0))
+            title, lines = self.hint
+            ui.hint_panel(self.canvas, title, lines, "ENTER ok", top=None)
         ui.present(self.canvas, screen)
 
     def draw_canvas(self, canvas):
@@ -117,7 +132,7 @@ class LoadingScene(MenuScene):
 class IntroScene(MenuScene):
     """The title screen / main menu."""
 
-    BUTTONS = ("play", "levels", "quit")  # the kit also has SETTINGS; there's nothing to set
+    BUTTONS = ("play", "tutorial", "levels", "quit")  # the kit also has SETTINGS; there's nothing to set
     BUTTON_X, BUTTON_TOP, BUTTON_GAP = 112, 60, 23
     KNIGHT_SPEED = 30
 
@@ -143,7 +158,13 @@ class IntroScene(MenuScene):
 
     def activate(self, button):
         if button == "play":
-            self.game.change_scene(NoticeScene(self.game))
+            if settings.load().get("tour_offered"):
+                self.game.change_scene(NoticeScene(self.game))
+            else:
+                self.game.change_scene(TourOfferScene(self.game))
+        elif button == "tutorial":
+            from game.tutorial import TutorialScene  # tutorial imports this module
+            self.game.change_scene(TutorialScene(self.game))
         elif button == "levels":
             self.game.change_scene(RoomSelectScene(self.game))
         elif button == "quit":
@@ -167,12 +188,76 @@ class IntroScene(MenuScene):
         for i, name in enumerate(self.BUTTONS):
             y = self.BUTTON_TOP + i * self.BUTTON_GAP
             selected = i == self.selected
-            image = ui.sprite(f"btn_{name}_{self.state(name, selected)}")
-            rect = canvas.blit(image, (self.BUTTON_X, y))
+            if ui.has_sprite(f"btn_{name}_n"):
+                rect = canvas.blit(ui.sprite(f"btn_{name}_{self.state(name, selected)}"), (self.BUTTON_X, y))
+            else:  # no art with the label baked in
+                rect = pygame.Rect(self.BUTTON_X, y, 96, 20)
+                ui.button(canvas, rect, name.title(), "stone", self.state(name, selected))
             self.hotspots.add(rect, name)
             if selected:
                 canvas.blit(ui.sprite("cursor_sword"), (self.BUTTON_X - 16, y + 6))
         ui.draw_text(canvas, "< > music   M mute", (6, 171), alpha=DIM)
+
+
+class TourOfferScene(MenuScene):
+    """Asked once, the first time Play is pressed: take the tour first, or just play."""
+
+    BUTTONS = ("tour", "play")
+    BUTTON_RECTS = {"tour": pygame.Rect(66, 136, 92, 18), "play": pygame.Rect(166, 136, 92, 18)}
+
+    def __init__(self, game):
+        super().__init__(game)
+        self.selected = 0
+
+    def activate(self, button):
+        settings.set("tour_offered", True)
+        if button == "tour":
+            from game.tutorial import TutorialScene  # tutorial imports this module
+            self.game.change_scene(TutorialScene(self.game))
+        else:
+            self.game.change_scene(NoticeScene(self.game))
+
+    def on_hover(self, key):
+        self.selected = self.BUTTONS.index(key)
+
+    def on_click(self, key):
+        self.activate(key)
+
+    def on_key(self, key):
+        if key in LEFT_KEYS or key in RIGHT_KEYS:
+            self.selected = 1 - self.selected
+        elif key in CONFIRM_KEYS:
+            self.activate(self.BUTTONS[self.selected])
+        elif key == pygame.K_ESCAPE:
+            self.game.change_scene(IntroScene(self.game))
+
+    def draw_canvas(self, canvas):
+        canvas.blit(ui.background("levels_bg"), (0, 0))
+        self.draw_torches(canvas, [(24, 60), (284, 60)])
+        ui.draw_text(canvas, "First time?", (160, 15), "gold", scale=2, anchor="center")
+        lines = [
+            ("Sir Knight does the fighting.", "cream"),
+            ("You carry the bag, and hand him", "cream"),
+            ("the right gear at the right time.", "cream"),
+            ("", "cream"),
+            ("A short tour shows you how,", "gold"),
+            ("in a practice room. Nobody dies.", "gold"),
+        ]
+        for i, (line, color) in enumerate(lines):
+            ui.draw_text(canvas, line, (160, 40 + i * 12), color, anchor="midtop")
+        knight = knight_frame("idle_down", self.time)
+        canvas.blit(knight, knight.get_rect(midbottom=(18, 128)))
+        helper = helper_frame("medium", "idle_down", self.time)
+        canvas.blit(helper, helper.get_rect(midbottom=(302, 128)))
+        for i, name in enumerate(self.BUTTONS):
+            rect = self.BUTTON_RECTS[name]
+            selected = i == self.selected
+            ui.button(canvas, rect, "Take the tour" if name == "tour" else "Just play",
+                      "red" if name == "tour" else "stone", self.state(name, selected))
+            if selected:
+                pygame.draw.rect(canvas, GOLD, rect.inflate(4, 4), 1)
+            self.hotspots.add(rect, name)
+        ui.draw_text(canvas, "A/D choose   ENTER go   ESC back", (160, 171), anchor="midtop", alpha=DIM)
 
 
 class NoticeScene(MenuScene):
@@ -441,6 +526,8 @@ class RewardScene(MenuScene):
         self.notice_left = 0.0
         self.quitting = False  # the quit button was clicked once; a second click quits
         self.priests = [pygame.image.load(self.PRIEST.format(i, i)).convert_alpha() for i in (1, 2, 3)]
+        if not shrine:
+            self.show_hint("reward" if self.cards else "get_ready")
 
     @property
     def queue(self):

@@ -187,6 +187,29 @@ def button(surface, rect, label, variant="stone", state="n"):
     draw_text(surface, label, (rect.centerx, face_y), color, anchor="center")
 
 
+def hint_panel(surface, title, lines, footer=None, top=True, width=34, alpha=255):
+    """A box of advice at the top of `surface` (or the bottom with top=False, the middle
+    with top=None): a gold title, the lines wrapped to `width` characters, and a dim
+    footer like "ENTER ok". Returns its rect."""
+    body = [part for line in lines for part in (wrap(line, width) or [""])]
+    rows = [title] + body + ([footer] if footer else [])
+    rect = pygame.Rect(0, 0, max(len(row) for row in rows) * GLYPH_ADVANCE + 16, 14 + 10 * len(rows))
+    rect.centerx = surface.get_width() // 2
+    if top is None:
+        rect.centery = surface.get_height() // 2
+    elif top:
+        rect.top = 4
+    else:
+        rect.bottom = surface.get_height() - 4
+    nine_slice(surface, "panel9", rect)
+    draw_text(surface, title, (rect.centerx, rect.y + 7), "gold", anchor="midtop", alpha=alpha)
+    for i, line in enumerate(body):
+        draw_text(surface, line, (rect.centerx, rect.y + 17 + i * 10), anchor="midtop", alpha=alpha)
+    if footer:
+        draw_text(surface, footer, (rect.centerx, rect.bottom - 14), "gold", anchor="midtop", alpha=min(alpha, 150))
+    return rect
+
+
 def present(canvas, screen):
     """Scale a UI canvas up to the whole window."""
     pygame.transform.scale(canvas, screen.get_size(), screen)

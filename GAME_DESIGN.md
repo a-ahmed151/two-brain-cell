@@ -32,6 +32,16 @@ All the lines live in `game/story.py`. The font has letters, digits and `:%!?-/.
 
 **Quitting a run:** ESC (or P, or clicking "ESC pause" on the side panel) pauses a fight, with **Resume** and **Quit run**. Between rooms, the Quit run button at the top left (or ESC) asks once more, then quits. Quitting goes back to the main menu.
 
+## Tutorial
+The game teaches itself (`game/tutorial.py`). **Tutorial** on the main menu starts the tour any time; the first time someone presses **Play** they're asked "First time?" (**Take the tour** / **Just play**), once.
+
+- **The practice room** (the Crypt, a Satchel with Pickaxe, Potion, Key; he holds the Sword). A box at the top says what to do, and each step waits until it's done (it checks what happened, so doing things early counts): who you are, walk, SPACE sends him in (the real pre-fight screen), dig, hand over, right tool for armor, a Skull hunts you (run), items (he's hurt: hand him the Potion), the Key and the chest, walk out the door. The part of the side panel a step is about blinks gold. **Nobody dies in the tour:** losing patches everyone up ("In a real run, that's the end!"). ESC pauses, with **Leave tour**.
+- **Four pages** afterwards: between rooms (rewards, sorting, his hands), the three bags, who beats who, the road ahead (blessings, the Trial, the boss, and a hint about the bag at the end). The last page starts a run.
+
+**First-run hints** (`game/hints.py`): the first time something happens in a real run, the fight waits under a short box of advice (ENTER ok): holding gear (how to hand it over), holding the Key, an enemy after the Helper, the first lost heart, the Knight low with a Potion in the bag, old gear going back in the bag, and the first Get ready and reward screens. Each shows once, ever.
+
+`settings.json` (not in git, `game/settings.py`) remembers the music level, `tour_offered`, and `hints_seen`. Delete it to see the offer and the hints again.
+
 ## The Knight
 - Picks his target by **what he's holding**: the enemy his weapon does the most damage to (Pickaxe → Armored, Torch → Skulls and Vampires, Sword → anything but Armored), and among those, the nearest. With his fists or the Shield every enemy is the same to him, so he takes the nearest. He walks to it (around walls) and swings on a cooldown (0.8 s).
 - **Damage depends on his tool** and the enemy's tags (see Gear). Bare-handed he does 1.

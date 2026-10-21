@@ -6,12 +6,11 @@ and up in steps of 10%, M mutes. A small panel shows the level for a moment. The
 in settings.json, so it's the same next time.
 """
 
-import json
 import sys
 
 import pygame
 
-from game import ui
+from game import settings, ui
 
 TRACK = "assets/sounds/bg.mp3"
 WEB_TRACK = "assets/sounds/bg.ogg"  # browsers (the pygbag web build) play Ogg, not MP3
@@ -20,7 +19,6 @@ FADE_OUT_MS = 1500
 STEPS = 10  # the volume goes 0..STEPS
 DEFAULT_LEVEL = 4  # 40%: quiet enough to sit under the sound effects
 MAX_VOLUME = 0.5  # the mixer volume at 100%; the track is mastered loud
-SETTINGS = "settings.json"
 TOAST_TIME = 1.5  # seconds the volume panel stays up after a change
 
 DOWN_KEYS = (pygame.K_COMMA, pygame.K_LESS, pygame.K_MINUS, pygame.K_KP_MINUS)
@@ -30,10 +28,9 @@ MUTE_KEYS = (pygame.K_m,)
 
 def _load_level():
     try:
-        with open(SETTINGS) as f:
-            level = int(json.load(f).get("music", DEFAULT_LEVEL))
+        level = int(settings.load().get("music", DEFAULT_LEVEL))
         return max(0, min(STEPS, level))
-    except (OSError, ValueError, TypeError, AttributeError):
+    except (ValueError, TypeError):
         return DEFAULT_LEVEL
 
 
@@ -93,11 +90,7 @@ class Music:
         return True
 
     def save(self):
-        try:
-            with open(SETTINGS, "w") as f:
-                json.dump({"music": self.level}, f)
-        except OSError:
-            pass  # read-only (or the browser): it just won't be remembered
+        settings.set("music", self.level)
 
     def update(self, dt):
         self.toast = max(0.0, self.toast - dt)
