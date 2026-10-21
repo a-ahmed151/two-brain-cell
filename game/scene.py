@@ -35,6 +35,7 @@ class Game:
 
         # Filled in by the loading scene.
         self.levels = []  # the arena rooms; each room of a run uses one of them
+        self.trial_level = None  # the Trial's own room (levels/trial.tmj), never used for normal rooms
         self.tiles = {}  # tileset image path -> {gid: tile surface}
 
         self.current_run = None  # the RunState in progress (game/run.py)

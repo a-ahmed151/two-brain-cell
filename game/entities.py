@@ -169,6 +169,8 @@ class Knight:
         self.popup(f"+{healed}", (110, 220, 120))
 
     def damage_against(self, enemy):
+        if enemy.type.only and self.tool != enemy.type.only:
+            return 0  # a Trial monster: only one piece of gear hurts it
         if not self.tool:
             return FIST_DAMAGE
         gear = GEAR[self.tool]
@@ -189,7 +191,7 @@ class Knight:
                 self.item = None
                 self.popup("BOOM!", (255, 200, 80))
                 for enemy in near:
-                    enemy.hurt(BOMB_DAMAGE)
+                    enemy.hurt(BOMB_DAMAGE, gear="bomb")
 
     def update(self, dt, level, enemies=()):
         """Fight the enemy his weapon is best against, or once the room's clear, walk out if told to."""
@@ -229,15 +231,19 @@ class Knight:
             if to_target.length_squared():
                 self.facing = self.lunge_dir
             fire = bool(self.tool) and GEAR[self.tool].fire
-            color = (255, 160, 60) if fire else (255, 255, 255)
             sweep = GEAR[self.tool].sweep if self.tool else 0
             # A Shield bash hits everything around him, not just his target.
             hit = [target] + [e for e in alive if e is not target
                               and e.pos.distance_to(self.pos) <= sweep * e.type.scale]
             for enemy in hit:
                 damage = self.damage_against(enemy)
-                enemy.hurt(damage, fire)
-                self.popup(str(damage), color, enemy.pos + (0, -12 * enemy.type.scale))
+                enemy.hurt(damage, fire, self.tool)
+                above = enemy.pos + (0, -12 * enemy.type.scale)
+                if damage == 0:
+                    self.popup("immune", (150, 150, 165), above)  # a Trial monster: wrong gear
+                else:
+                    color = (255, 160, 60) if fire else (255, 255, 255)
+                    self.popup(str(damage), color, above)
 
     def _walk_to(self, point, dt, stop, level=None, speed=KNIGHT_SPEED):
         """Step toward `point`; True once within `stop` pixels of it."""

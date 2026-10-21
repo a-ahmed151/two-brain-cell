@@ -6,7 +6,7 @@ The arenas are built by tools/build_levels.py; see its docstring for the markers
 import json
 import os
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import pygame
 
@@ -28,6 +28,7 @@ class Level:
     spawns: list[pygame.Vector2]  # where enemies appear
     chest: pygame.Vector2 | None  # opened with a Key for an extra reward
     entrance: pygame.Vector2 | None = None  # middle of the (closed) entrance door, in the top wall
+    spikes: list[pygame.Vector2] = field(default_factory=list)  # spike traps (the Trial), tile centres
 
     @property
     def pixel_width(self):
@@ -141,6 +142,7 @@ def load_level(filename):
         spawns=points["spawn"],
         chest=points.get("chest", [None])[0],
         entrance=points.get("entrance", [None])[0],
+        spikes=points.get("spike", []),
     )
 
 

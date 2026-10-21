@@ -28,6 +28,7 @@ ROOM_CLEAR = [
     "If anything happens to me, the gold goes to me.",
     "The Count's next. Stay behind me. Further.",
 ]
+TRIAL_CLEAR = "Four seals. All broken by me. Obviously."
 BOSS_CLEAR = "Hah! My skill is unmatched."
 BOSS_LEAVING = "Good work, Player 1! That's me."
 

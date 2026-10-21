@@ -16,7 +16,8 @@ from game.enemies import draw_lineup
 from game.entities import helper_frame, knight_frame
 from game.gear import GEAR, ITEM, TOOL, draw_icon
 from game.level import load_level, load_tiles
-from game.run import ROOMS, SHRINE_HEAL, STARTING_KIT, RunState
+from game.enemies import ENEMIES
+from game.run import ROOMS, SHRINE_HEAL, STARTING_KIT, TRIAL_ROOM, WAVES, RunState
 from game.scene import Scene
 
 LEVELS_DIR = "levels"
@@ -101,7 +102,10 @@ class LoadingScene(MenuScene):
             image = level.tileset["image"]
             if image not in self.game.tiles:
                 self.game.tiles[image] = load_tiles(level.tileset)
-            self.game.levels.append(level)
+            if name.startswith("trial"):
+                self.game.trial_level = level
+            else:
+                self.game.levels.append(level)
         self.game.change_scene(IntroScene(self.game))
 
     def draw_canvas(self, canvas):
@@ -113,8 +117,8 @@ class LoadingScene(MenuScene):
 class IntroScene(MenuScene):
     """The title screen / main menu."""
 
-    BUTTONS = ("play", "quit")  # the kit also has LEVELS and SETTINGS; a run has neither
-    BUTTON_X, BUTTON_TOP, BUTTON_GAP = 112, 68, 23
+    BUTTONS = ("play", "levels", "quit")  # the kit also has SETTINGS; there's nothing to set
+    BUTTON_X, BUTTON_TOP, BUTTON_GAP = 112, 60, 23
     KNIGHT_SPEED = 30
 
     def __init__(self, game):
@@ -140,6 +144,8 @@ class IntroScene(MenuScene):
     def activate(self, button):
         if button == "play":
             self.game.change_scene(NoticeScene(self.game))
+        elif button == "levels":
+            self.game.change_scene(RoomSelectScene(self.game))
         elif button == "quit":
             self.game.quit()
 
@@ -194,6 +200,91 @@ class NoticeScene(MenuScene):
         ui.draw_text(canvas, "ENTER sign   ESC back", (160, 171), anchor="midtop", alpha=DIM)
 
 
+def room_label(room):
+    """'Room 3', 'The boss' or 'The Trial', for a room index (or "trial")."""
+    if room == "trial":
+        return "The Trial"
+    return "The boss" if room == ROOMS - 1 else f"Room {room + 1}"
+
+
+class RoomSelectScene(MenuScene):
+    """Levels: start a run at any room, the boss, or straight into the Trial. You still
+    pick a bag first; from there the run carries on as normal."""
+
+    ROOMS_PER_ROW = 5
+    CHOICES = list(range(ROOMS)) + ["trial"]
+
+    def __init__(self, game, selected=0):
+        super().__init__(game)
+        self.selected = self.CHOICES.index(selected)
+        self.doors = [(w["x"], w["y"]) for w in ui.layout("levels")["widgets"] if w["type"] == "level"]
+
+    def choose(self, index):
+        self.game.change_scene(RunStartScene(self.game, self.CHOICES[index]))
+
+    def on_hover(self, key):
+        if key != "back":
+            self.selected = key
+
+    def on_click(self, key):
+        if key == "back":
+            self.game.change_scene(IntroScene(self.game))
+        else:
+            self.choose(key)
+
+    def on_key(self, key):
+        count, row = len(self.CHOICES), self.ROOMS_PER_ROW
+        if key in LEFT_KEYS:
+            self.selected = (self.selected - 1) % count
+        elif key in RIGHT_KEYS:
+            self.selected = (self.selected + 1) % count
+        elif key in UP_KEYS or key in DOWN_KEYS:
+            self.selected = (self.selected + row) % count
+        elif key in CONFIRM_KEYS:
+            self.choose(self.selected)
+        elif key == pygame.K_ESCAPE:
+            self.game.change_scene(IntroScene(self.game))
+
+    @staticmethod
+    def describe(choice):
+        if choice == "trial":
+            return "Four seals. Only the right gear hurts."
+        if choice == ROOMS - 1:
+            return "The Count, and his skulls."
+        kinds = dict.fromkeys(kind for wave in WAVES[choice] for kind in wave)
+        names = [ENEMIES[k].name + ("" if ENEMIES[k].name.endswith(("s", "ed")) else "s") for k in kinds]
+        return ", ".join(names)
+
+    def draw_canvas(self, canvas):
+        canvas.blit(ui.background("levels_bg"), (0, 0))
+        ui.draw_text(canvas, "Pick a room", (160, 15), "gold", scale=2, anchor="center")
+        back = canvas.blit(ui.sprite(f"icon_back_{self.state('back', False)}"), (6, 6))
+        self.hotspots.add(back, "back")
+        self.draw_torches(canvas, [(12, 104), (300, 104)])
+        ui.draw_text(canvas, "Start a run anywhere", (160, 38), anchor="midtop", alpha=DIM)
+
+        for i, choice in enumerate(self.CHOICES):
+            x, y = self.doors[i]
+            selected = i == self.selected
+            if choice == "trial":
+                name, plate = "level_done", "T"
+            elif choice == ROOMS - 1:
+                name, plate = "level_current", str(ROOMS)  # the gold door
+            else:
+                name, plate = "level_open", str(choice + 1)
+            rect = canvas.blit(ui.sprite(f"{name}_hover" if selected else name), (x, y))
+            ui.draw_text(canvas, plate, (rect.centerx + 1, rect.y + 5), "dark", anchor="center")
+            if selected:
+                pygame.draw.rect(canvas, GOLD, rect.inflate(4, 4), 1)
+            self.hotspots.add(rect, i)
+
+        choice = self.CHOICES[self.selected]
+        ui.draw_text(canvas, room_label(choice), (160, 131), "gold", anchor="midtop")
+        ui.draw_text(canvas, self.describe(choice), (160, 141), anchor="midtop")
+        ui.draw_text(canvas, "You start with just your bag's kit.", (160, 158), anchor="midtop", alpha=DIM)
+        ui.draw_text(canvas, "WASD choose   ENTER go   ESC back", (160, 170), anchor="midtop", alpha=DIM)
+
+
 def draw_card(canvas, rect, state, selected, title, blurb, icon=None, image=None, dim=False):
     """A reward card: icon (or sprite), name and a short wrapped description."""
     ui.nine_slice(canvas, f"button9_{'red' if selected else 'stone'}_{state}", rect)
@@ -218,15 +309,31 @@ class RunStartScene(MenuScene):
         "pouch": "Fast dig. Tiny.",
     }
 
-    def __init__(self, game):
+    def __init__(self, game, start_room=0):
         super().__init__(game)
         self.bags = list(BAGS)
         self.selected = 0
+        self.start_room = start_room  # from the Levels screen: a room index, or "trial"
 
     def start(self):
         bag_id = self.bags[self.selected]
-        self.game.current_run = RunState(bag_id, self.game.levels)
+        run = self.game.current_run = RunState(bag_id, self.game.levels)
+        if self.start_room == "trial":
+            from game.trial import TrialPrepScene, lend_trial_pack  # trial imports this module
+            run.room = TRIAL_ROOM
+            run.trial_offered = True
+            lend_trial_pack(run)
+            self.game.change_scene(TrialPrepScene(self.game))
+            return
+        run.room = self.start_room
+        run.trial_offered = self.start_room >= TRIAL_ROOM  # it's offered on the way to room 8
         self.game.change_scene(RewardScene(self.game, picks=0))
+
+    def back(self):
+        if self.start_room:
+            self.game.change_scene(RoomSelectScene(self.game, self.start_room))
+        else:
+            self.game.change_scene(IntroScene(self.game))
 
     def on_hover(self, key):
         if key != "start" and key != "back":
@@ -234,7 +341,7 @@ class RunStartScene(MenuScene):
 
     def on_click(self, key):
         if key == "back":
-            self.game.change_scene(IntroScene(self.game))
+            self.back()
         elif key == "start":
             self.start()
         else:
@@ -248,15 +355,19 @@ class RunStartScene(MenuScene):
         elif key in CONFIRM_KEYS:
             self.start()
         elif key == pygame.K_ESCAPE:
-            self.game.change_scene(IntroScene(self.game))
+            self.back()
 
     def draw_canvas(self, canvas):
         canvas.blit(ui.background("levels_bg"), (0, 0))
         ui.draw_text(canvas, "Pick a bag", (160, 15), "gold", scale=2, anchor="center")
         back = canvas.blit(ui.sprite(f"icon_back_{self.state('back', False)}"), (6, 6))
         self.hotspots.add(back, "back")
-        ui.draw_text(canvas, f"{ROOMS - 1} rooms, then the boss. One life.", (160, 27), anchor="midtop",
-                     alpha=DIM)
+        if self.start_room:
+            where = room_label(self.start_room)
+            ui.draw_text(canvas, f"Starting at: {where}", (160, 27), "gold", anchor="midtop")
+        else:
+            ui.draw_text(canvas, f"{ROOMS - 1} rooms, then the boss. One life.", (160, 27), anchor="midtop",
+                         alpha=DIM)
         x = 160 - (3 * self.CARD_W + 2 * self.CARD_GAP) // 2
         for i, bag_id in enumerate(self.bags):
             bag = BAGS[bag_id]

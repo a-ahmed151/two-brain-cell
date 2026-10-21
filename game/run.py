@@ -10,6 +10,7 @@ from game.gear import ITEM, TOOL
 
 ROOMS = 9  # the last one is the boss
 SHRINE_AFTER = (2, 5)  # room indices followed by a priest instead of a reward
+TRIAL_ROOM = 7  # the optional Trial (game/trial.py) is offered on the way to this room index (room 8)
 REWARD_CHOICES = 3
 REWARD_POOL = ["sword", "pickaxe", "torch", "shield", "potion", "potion", "bomb", "bomb", "key"]
 CHEST_LOOT = ["potion", "bomb", "key"]  # the chest gives one of these
@@ -48,6 +49,9 @@ class RunState:
         self.backpack = Backpack(BAGS[bag_id], STARTING_KIT[bag_id])
         self.knight_hp = self.knight_max_hp = KNIGHT_MAX_HP
         self.helper_hp = HELPER_HP  # the Helper's hearts: lost for good, nothing heals them
+        self.trial_offered = False
+        self.trial_won = False
+        self.lent = None  # during the Trial: (own backpack, own hands) to give back afterwards
         # What's in his hands, carried into the next room. Either can be None.
         self.hands = {TOOL: KNIGHT_TOOL, ITEM: None}
         self.room = 0

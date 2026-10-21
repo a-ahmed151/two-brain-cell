@@ -10,7 +10,7 @@ from game import story, ui
 from game.enemies import ENEMIES, Enemy, draw_lineup
 from game.entities import HELPER_HP, Helper, Knight, Popup
 from game.gear import GEAR, ITEM, TOOL, draw_icon
-from game.run import ROOM_POINTS, ROOM_REST, ROOMS
+from game.run import ROOM_POINTS, ROOM_REST, ROOMS, TRIAL_ROOM
 from game.scene import Scene
 
 WORLD_SCALE = 3  # the world is drawn at native pixel-art size, then scaled up
@@ -213,6 +213,11 @@ class CombatScene(Scene):
         run = self.run
         shrine = run.shrine_next()
         run.room += 1
+        if run.room == TRIAL_ROOM and not run.trial_offered:
+            from game.trial import TrialOfferScene  # imports this module too
+            run.trial_offered = True
+            self.game.change_scene(TrialOfferScene(self.game, shrine))
+            return
         self.game.change_scene(RewardScene(self.game, shrine=shrine))
 
     def end(self, outcome, title, *lines):
@@ -284,6 +289,8 @@ class CombatScene(Scene):
             return
         if self.enemies:
             return
+        if not self.room_won(dt):
+            return
 
         if not self.cleared:
             # The exit opens. There's time to open the chest before walking out.
@@ -295,7 +302,7 @@ class CombatScene(Scene):
                 knight.say(story.BOSS_CLEAR)
                 helper.backpack.queue.insert(0, "poison")
             else:
-                knight.say(story.ROOM_CLEAR[self.run.room])
+                knight.say(self.clear_line())
         if not self.run.boss_room:
             # He tags along behind the Helper (to the chest, to the door) so they leave together.
             if knight.pos.distance_to(helper.rect.center) > FOLLOW_GAP:
@@ -315,6 +322,15 @@ class CombatScene(Scene):
             from game.menus import RenewedScene
             self.game.current_run = None
             self.game.change_scene(RenewedScene(self.game, self.run.p1_score, self.run.backpack.bag.sprite))
+
+    def clear_line(self):
+        """What he says once the room is clear: he takes the credit."""
+        return story.ROOM_CLEAR[self.run.room]
+
+    def room_won(self, dt):
+        """Called every frame once no enemies are left: True if the room is won (the Trial
+        brings on its next wave instead)."""
+        return True
 
     def walk_out(self, dt):
         """Both walk up through the open exit: the Helper first, the Knight right behind.
@@ -348,6 +364,7 @@ class CombatScene(Scene):
         knight, helper = self.knight, self.helper
         world = self.world
         world.blit(self.background, (0, 0))
+        self.draw_floor(world)
         if self.level.chest is not None:
             image = chest_image(self.chest_opened)
             world.blit(image, image.get_rect(center=self.level.chest))
@@ -410,6 +427,12 @@ class CombatScene(Scene):
         ui.draw_text(world, f"P1 {story.p1_score(self.run.p1_score)}", (4, 4), "gold")
         ui.draw_text(world, f"P2 {story.p2_score(self.run.room)}", (VIEW[0] - 4, 4), anchor="topright", alpha=DIM)
 
+    def draw_floor(self, world):
+        """Things on the floor under everyone (the Trial's spike traps)."""
+
+    def hud_title(self):
+        return "Boss" if self.run.boss_room else f"Room {self.run.room + 1}/{ROOMS}"
+
     def draw_pause(self, overlay):
         overlay.fill((0, 0, 0, 150))
         rect = pygame.Rect(0, 0, 120, 82)
@@ -464,8 +487,7 @@ class CombatScene(Scene):
         backpack = helper.backpack
         w = hud.get_width()
         ui.nine_slice(hud, "panel9", hud.get_rect())
-        room = "Boss" if self.run.boss_room else f"Room {self.run.room + 1}/{ROOMS}"
-        ui.draw_text(hud, room, (w // 2, 8), "gold", anchor="midtop")
+        ui.draw_text(hud, self.hud_title(), (w // 2, 8), "gold", anchor="midtop")
 
         ui.draw_text(hud, "Knight", (w // 2, 20), anchor="midtop", alpha=DIM)
         bar = pygame.Rect(w // 2 - 25, 30, 50, 4)
